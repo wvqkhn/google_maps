@@ -22,17 +22,16 @@ chrome_options.add_argument(
     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.165 Safari/537.36")
 chrome_options.add_argument("window-size=1920,3000")
 chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-# 启用无头模式（Docker 环境中必须使用无头模式）
+# 启用无头模式
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
-chrome_options.add_argument("--no-sandbox")  # Docker 环境中需要
-chrome_options.add_argument("--disable-dev-shm-usage")  # 解决 Docker 内存问题
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+# 指定 Chrome 可执行文件路径
+chrome_options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
-# 在 Docker 环境中，Chrome 二进制路径由 Dockerfile 设置
-chrome_options.binary_location = "/usr/bin/google-chrome"
-
-# 设置 ChromeDriver 路径（Docker 环境中由 Dockerfile 设置）
-service = Service("/usr/local/bin/chromedriver")
+# 设置 ChromeDriver 路径
+service = Service(r'C:\chromedriver\chromedriver.exe')
 
 # 初始化 WebDriver
 try:
