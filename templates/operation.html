@@ -37,7 +37,7 @@
             border-radius: 4px;
             box-sizing: border-box;
         }
-        #extraction-form button {
+        #extraction-form button, #extract-contacts-btn {
             width: 100%;
             padding: 10px;
             background-color: #007bff;
@@ -47,8 +47,9 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            margin-top: 10px;
         }
-        #extraction-form button:hover {
+        #extraction-form button:hover, #extract-contacts-btn:hover {
             background-color: #0056b3;
         }
         #progress {
@@ -59,7 +60,7 @@
         }
         #business-table {
             width: 80%;
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             border-collapse: collapse;
             background-color: #fff;
@@ -119,14 +120,18 @@
         <label for="proxy">Proxy (optional, e.g., username:password@host:port or host:port):</label>
         <input type="text" id="proxy" name="proxy">
         <button type="submit">Start Extraction</button>
+        <button type="button" id="extract-contacts-btn" style="display: none;">Extract Contact Info</button>
     </form>
 
-    <div id="progress">Progress: 0%</div>
+    <div id="progress">Progress: 0% - Waiting...</div>
     <table id="business-table">
         <thead>
             <tr>
                 <th>Name</th>
                 <th>Website</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Facebook</th>
             </tr>
         </thead>
         <tbody id="business-table-body">
@@ -140,6 +145,7 @@
         const progressDiv = document.getElementById('progress');
         const tableBody = document.getElementById('business-table-body');
         const downloadLink = document.getElementById('download-link');
+        const extractContactsBtn = document.getElementById('extract-contacts-btn');
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -147,8 +153,8 @@
             const limit = document.getElementById('limit').value;
             const proxy = document.getElementById('proxy').value;
 
-            // 清空表格
             tableBody.innerHTML = '';
+            progressDiv.textContent = 'Progress: 0% - Task started...';
 
             fetch('/start_extraction', {
                 method: 'POST',
@@ -159,9 +165,29 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'success') {
-                    progressDiv.textContent = 'Task started...';
-                } else {
+                if (data.status !== 'success') {
+                    progressDiv.textContent = `Error: ${data.message}`;
+                }
+            })
+            .catch(error => {
+                progressDiv.textContent = `Fetch error: ${error}`;
+            });
+        });
+
+        extractContactsBtn.addEventListener('click', function() {
+            const proxy = document.getElementById('proxy').value;
+            progressDiv.textContent = 'Progress: 0% - Contact extraction started...';
+
+            fetch('/extract_contacts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `proxy=${encodeURIComponent(proxy)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'success') {
                     progressDiv.textContent = `Error: ${data.message}`;
                 }
             })
@@ -173,17 +199,45 @@
         socket.on('progress_update', function(data) {
             progressDiv.textContent = `Progress: ${data.progress}% - ${data.message || ''}`;
 
-            // 如果有 business_data，添加到表格
             if (data.business_data) {
                 const row = document.createElement('tr');
+                row.dataset.name = data.business_data.name;  // 添加唯一标识
                 row.innerHTML = `
                     <td>${data.business_data.name || 'N/A'}</td>
                     <td>${data.business_data.website ? '<a href="' + data.business_data.website + '" target="_blank">' + data.business_data.website + '</a>' : 'N/A'}</td>
+                    <td>${data.business_data.email || 'N/A'}</td>
+                    <td>${data.business_data.phone || 'N/A'}</td>
+                    <td>${data.business_data.facebook ? '<a href="' + data.business_data.facebook + '" target="_blank">' + data.business_data.facebook + '</a>' : 'N/A'}</td>
                 `;
                 tableBody.appendChild(row);
             }
 
-            // 如果任务完成，显示下载链接
+            if (data.progress === 100) {
+                extractContactsBtn.style.display = 'block';  // 显示联系方式提取按钮
+                if (data.csv_file) {
+                    downloadLink.href = `/download/${data.csv_file}`;
+                    downloadLink.style.display = 'block';
+                    downloadLink.textContent = `Download CSV (${data.csv_file})`;
+                }
+            }
+        });
+
+        socket.on('contact_update', function(data) {
+            progressDiv.textContent = `Progress: ${data.progress}% - ${data.message || ''}`;
+
+            if (data.business_data) {
+                const existingRow = tableBody.querySelector(`tr[data-name="${data.business_data.name}"]`);
+                if (existingRow) {
+                    existingRow.innerHTML = `
+                        <td>${data.business_data.name || 'N/A'}</td>
+                        <td>${data.business_data.website ? '<a href="' + data.business_data.website + '" target="_blank">' + data.business_data.website + '</a>' : 'N/A'}</td>
+                        <td>${data.business_data.email || 'N/A'}</td>
+                        <td>${data.business_data.phone || 'N/A'}</td>
+                        <td>${data.business_data.facebook ? '<a href="' + data.business_data.facebook + '" target="_blank">' + data.business_data.facebook + '</a>' : 'N/A'}</td>
+                    `;
+                }
+            }
+
             if (data.progress === 100 && data.csv_file) {
                 downloadLink.href = `/download/${data.csv_file}`;
                 downloadLink.style.display = 'block';

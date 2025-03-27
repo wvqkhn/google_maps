@@ -1,22 +1,24 @@
 import sys
-import os
 import io
+import os
+import threading
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for, send_file
 from flask_socketio import SocketIO
-import threading
 from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR
 from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
+from contact_scraper import extract_contact_info
 from utils import save_to_csv
 
-# 设置标准输出和标准错误流的编码为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-# 初始化 Flask 应用
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED_ORIGINS)
+
+# 存储提取的商家数据
+business_data_store = []
 
 @app.route('/')
 def index():
@@ -72,41 +74,27 @@ def start_extraction():
                 driver, proxy_info = get_chrome_driver(proxy)
                 socketio.emit('progress_update', {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
 
-                # 测试代理是否生效
-                try:
-                    driver.set_page_load_timeout(30)
-                    driver.get("http://httpbin.org/ip")
-                    ip_info = driver.page_source
-                    print(f"当前 IP 信息: {ip_info}")
-                    socketio.emit('progress_update', {'progress': 5, 'message': f'代理测试 IP: {ip_info[:100]}...'})
-                except Exception as e:
-                    print(f"代理测试失败: {e}", file=sys.stderr)
-                    socketio.emit('progress_update', {'progress': 5, 'message': f'代理测试失败: {e}'})
-                    return
-
-                # 执行提取任务
                 extracted_data = []
-                for progress, current, business_data, message in extract_business_info(driver, search_url, limit=limit):
+                # 遍历生成器对象，收集数据
+                for progress, current, business_data, message in extract_business_info(driver, search_url, limit):
                     if business_data:
                         extracted_data.append(business_data)
-                        socketio.emit('progress_update', {
-                            'progress': progress,
-                            'current': current,
-                            'business_data': business_data
-                        })
-                    elif message:
-                        if "失败" in message or "出错" in message:
-                            socketio.emit('progress_update', {'progress': progress, 'message': message})
-                            return
-                        else:
-                            socketio.emit('progress_update', {'progress': progress, 'message': message})
+                    socketio.emit('progress_update', {
+                        'progress': progress,
+                        'current': current,
+                        'business_data': business_data,
+                        'message': message
+                    })
 
                 if extracted_data:
+                    global business_data_store
+                    business_data_store = extracted_data  # 存储数据供后续使用
                     csv_filename = save_to_csv(extracted_data)
                     socketio.emit('progress_update', {
                         'progress': 100,
                         'csv_file': csv_filename,
-                        'message': '提取完成'
+                        'message': '数据提取完成',
+                        'data': extracted_data
                     })
                 else:
                     socketio.emit('progress_update', {
@@ -128,6 +116,57 @@ def start_extraction():
     thread.start()
 
     return jsonify({"status": "success", "message": "任务已启动，正在提取数据..."})
+
+@app.route('/extract_contacts', methods=['POST'])
+def extract_contacts():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "请先登录"}), 401
+
+    proxy = request.form.get('proxy')
+
+    def background_contact_extraction(proxy=None):
+        driver = None
+        with app.app_context():
+            try:
+                if not business_data_store:
+                    socketio.emit('contact_update', {
+                        'progress': 100,
+                        'message': '没有可用的商家数据，请先执行提取任务'
+                    })
+                    return
+
+                driver, proxy_info = get_chrome_driver(proxy)
+                socketio.emit('contact_update', {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
+
+                for i, name, business_data, message in extract_contact_info(driver, business_data_store):
+                    socketio.emit('contact_update', {
+                        'progress': i,
+                        'name': name,
+                        'business_data': business_data,
+                        'message': message
+                    })
+
+                csv_filename = save_to_csv(business_data_store)
+                socketio.emit('contact_update', {
+                    'progress': 100,
+                    'csv_file': csv_filename,
+                    'message': '联系方式提取完成'
+                })
+            except Exception as e:
+                print(f"联系方式提取任务发生异常: {e}", file=sys.stderr)
+                socketio.emit('contact_update', {
+                    'progress': 100,
+                    'message': f'联系方式提取出错: {e}'
+                })
+            finally:
+                if driver:
+                    driver.quit()
+
+    thread = threading.Thread(target=background_contact_extraction, args=(proxy,))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({"status": "success", "message": "联系方式提取任务已启动..."})
 
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

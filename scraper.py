@@ -37,13 +37,17 @@ def scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=50
         current_link_count = len(business_links)
         print(f"滚动 {i + 1}/{max_scrolls} - 当前唯一商家链接数量: {current_link_count}")
 
+        # 发送滚动状态给前端
+        progress = int((i + 1) / max_scrolls * 50)  # 滚动阶段占前 50% 进度
+        yield progress, None, None, f"正在滚动页面 ({i + 1}/{max_scrolls})，已找到 {current_link_count} 个商家链接"
+
         if current_link_count >= target_count:
             print(f"已达到或超过目标条数 {target_count}，停止滚动")
             break
 
         # 模拟滚轮向下滚动
         ActionChains(driver).move_to_element(scrollable_area).click().send_keys(Keys.PAGE_DOWN).perform()
-        time.sleep(scroll_delay)  # 等待加载新数据
+        time.sleep(scroll_delay)  # 等待加载
 
         # 检查是否还有新链接加载
         new_links_after_scroll = driver.find_elements(By.CSS_SELECTOR,
@@ -59,7 +63,7 @@ def scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=50
     # 转换为列表并截取目标数量
     business_links = list(business_links)[:target_count]
     print(f"滚动完成，最终找到 {len(business_links)} 个唯一商家链接")
-    return business_links
+    yield 50, None, business_links, "滚动完成"
 
 def extract_single_business_info(driver):
     results = []
@@ -100,18 +104,27 @@ def extract_business_info(driver, search_url, limit=500):
         )
     except Exception as e:
         print(f"访问 URL 失败: {e}", file=sys.stderr)
-        return [], f"访问 URL 失败: {e}"
+        yield 0, None, None, f"访问 URL 失败: {e}"
+        return
 
     if "/place/" in search_url:
         print("检测到单个商家页面，直接提取信息...")
-        return extract_single_business_info(driver)
+        results, message = extract_single_business_info(driver)
+        yield 50, None, None, "正在提取单个商家数据"
+        yield 100, None, results[0] if results else None, message
+        return
 
     print("开始滚动页面以加载更多商家...")
-    business_links = scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=limit)
+    business_links = []
+    for progress, _, data, message in scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=limit):
+        if data is not None and isinstance(data, list):
+            business_links = data  # 收集滚动完成的链接列表
+        yield progress, None, None, message
 
     if not business_links:
         print("未找到任何商家链接")
-        return [], "未找到任何商家链接"
+        yield 100, None, None, "未找到任何商家链接"
+        return
 
     results = []
     total = len(business_links)
@@ -132,6 +145,10 @@ def extract_business_info(driver, search_url, limit=500):
             print(f"点击商家: {name}")
             ActionChains(driver).move_to_element(link).click().perform()
             time.sleep(3)  # 确保页面加载
+
+            # 发送提取状态
+            progress = int(50 + (i + 1) / total * 50) if total > 0 else 50  # 提取阶段占后 50% 进度
+            yield progress, name, None, f"正在提取数据: {name}"
 
             current_url = driver.current_url
             if "/maps/place/" not in current_url:
@@ -162,8 +179,7 @@ def extract_business_info(driver, search_url, limit=500):
 
             results.append(business_data)
             print(f"成功提取 {name} 的信息: {business_data}")
-            progress = int((i + 1) / total * 100) if total > 0 else 100
-            yield progress, name, business_data, None
+            yield progress, name, business_data, f"成功提取: {name}"
 
         except Exception as e:
             print(f"提取 {link_href} 时出错: {e}", file=sys.stderr)
