@@ -1,13 +1,12 @@
-import time
-import re
 import sys
-import os
+import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 
-def wait_for_element(driver, selector, timeout=10):
+def wait_for_element(driver, selector, timeout=5):
     try:
         element = WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, selector))
@@ -17,59 +16,73 @@ def wait_for_element(driver, selector, timeout=10):
         print(f"未找到元素 {selector}: {e}", file=sys.stderr)
         return None
 
-def scroll_and_load_more(driver, max_scrolls=5, scroll_delay=3, target_count=10):
-    previous_link_count = 0
-    business_links = []
+def scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=500):
+    business_links = set()  # 使用 set 避免重复链接
+    min_scrolls = 5  # 至少滚动 5 次
+
+    # 定位左侧商家列表的滚动区域
+    scrollable_area = wait_for_element(driver, 'div[role="feed"], div[aria-label*="results"], div.m6QErb[style*="overflow: auto"], div[style*="overflow-y: scroll"]')
+    if not scrollable_area:
+        print("未找到左侧滚动区域，尝试整个页面滚动")
+        scrollable_area = driver.find_element(By.TAG_NAME, "body")
+
     for i in range(max_scrolls):
-        business_links = driver.find_elements(By.CSS_SELECTOR,
-                                              'a[role="link"][aria-label], a.hfpxzc, a[href*="/maps/place/"]')
+        # 获取当前所有可见链接
+        new_links = driver.find_elements(By.CSS_SELECTOR,
+                                         'a[role="link"][aria-label], a.hfpxzc, a[href*="/maps/place/"]')
+        for link in new_links:
+            href = link.get_attribute('href') or link.text
+            if href:
+                business_links.add(href)
         current_link_count = len(business_links)
-        print(f"滚动 {i + 1}/{max_scrolls} - 当前商家链接数量: {current_link_count}")
+        print(f"滚动 {i + 1}/{max_scrolls} - 当前唯一商家链接数量: {current_link_count}")
 
         if current_link_count >= target_count:
-            print(f"已达到目标条数 {target_count}，停止滚动")
-            business_links = business_links[:target_count]
+            print(f"已达到或超过目标条数 {target_count}，停止滚动")
             break
 
-        if i > 0 and current_link_count == previous_link_count:
+        # 模拟滚轮向下滚动
+        ActionChains(driver).move_to_element(scrollable_area).click().send_keys(Keys.PAGE_DOWN).perform()
+        time.sleep(scroll_delay)  # 等待加载新数据
+
+        # 检查是否还有新链接加载
+        new_links_after_scroll = driver.find_elements(By.CSS_SELECTOR,
+                                                      'a[role="link"][aria-label], a.hfpxzc, a[href*="/maps/place/"]')
+        for link in new_links_after_scroll:
+            href = link.get_attribute('href') or link.text
+            if href:
+                business_links.add(href)
+        if i >= min_scrolls and len(business_links) == current_link_count:
             print("链接数量不再增加，停止滚动")
             break
 
-        previous_link_count = current_link_count
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(scroll_delay)
-
-    print(f"滚动完成，最终找到 {len(business_links)} 个商家链接")
+    # 转换为列表并截取目标数量
+    business_links = list(business_links)[:target_count]
+    print(f"滚动完成，最终找到 {len(business_links)} 个唯一商家链接")
     return business_links
 
 def extract_single_business_info(driver):
     results = []
     try:
-        time.sleep(5)
+        time.sleep(3)  # 确保页面加载
         name_elem = wait_for_element(driver, 'h1.DUwDvf')
         name = name_elem.text.strip() if name_elem else "Unknown"
 
-        business_data = {'name': name}
+        business_data = {'name': name, 'website': None}
 
-        address_elem = wait_for_element(driver, 'button[aria-label*="Address:"], div[data-item-id="address"]')
-        if address_elem:
-            business_data['address'] = (address_elem.get_attribute('aria-label') or address_elem.text).replace('Address: ', '').strip()
-
-        hours_elem = wait_for_element(driver, 'span.ZDu9vd, div[data-item-id="oh"]')
-        if hours_elem:
-            business_data['hours'] = hours_elem.text.strip()
-
+        # 提取网站
         website_elem = wait_for_element(driver, 'a[aria-label*="Website:"], a[data-item-id="authority"]')
         if website_elem:
-            business_data['website'] = website_elem.get_attribute('href')
-
-        phone_elem = wait_for_element(driver, 'button[aria-label*="Phone:"], div[data-item-id="phone"]')
-        if phone_elem:
-            business_data['phone'] = (phone_elem.get_attribute('aria-label') or phone_elem.text).replace('Phone: ', '').strip()
-
-        plus_code_elem = wait_for_element(driver, 'button[aria-label*="Plus code:"], div[data-item-id="oloc"]')
-        if plus_code_elem:
-            business_data['plusCode'] = (plus_code_elem.get_attribute('aria-label') or plus_code_elem.text).replace('Plus code: ', '').strip()
+            href = website_elem.get_attribute('href')
+            business_data['website'] = href
+            print(f"提取到网站: {href}")
+        else:
+            print(f"未找到 {name} 的网站元素，使用备用选择器")
+            website_elem = wait_for_element(driver, 'a[href^="http"]:not([href*="google.com"])')
+            if website_elem:
+                href = website_elem.get_attribute('href')
+                business_data['website'] = href
+                print(f"备用选择器提取到网站: {href}")
 
         results.append(business_data)
         print(f"成功提取 {name} 的信息: {business_data}")
@@ -78,11 +91,11 @@ def extract_single_business_info(driver):
         print(f"提取单个商家信息时出错: {e}", file=sys.stderr)
         return results, f"提取单个商家信息时出错: {e}"
 
-def extract_business_info(driver, search_url, limit=10):
-    print(f"正在访问 URL: {search_url}")
+def extract_business_info(driver, search_url, limit=500):
+    print(f"正在访问 URL: {search_url}，目标提取数量: {limit}")
     try:
         driver.get(search_url)
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))
         )
     except Exception as e:
@@ -94,7 +107,7 @@ def extract_business_info(driver, search_url, limit=10):
         return extract_single_business_info(driver)
 
     print("开始滚动页面以加载更多商家...")
-    business_links = scroll_and_load_more(driver, max_scrolls=10, scroll_delay=2, target_count=limit)
+    business_links = scroll_and_load_more(driver, max_scrolls=50, scroll_delay=3, target_count=limit)
 
     if not business_links:
         print("未找到任何商家链接")
@@ -102,12 +115,15 @@ def extract_business_info(driver, search_url, limit=10):
 
     results = []
     total = len(business_links)
-    for i, link in enumerate(business_links):
+    print(f"共有 {total} 个商家链接可供提取")
+    for i, link_href in enumerate(business_links):
         if len(results) >= limit:
             print(f"已提取 {limit} 条数据，停止提取")
             break
 
         try:
+            # 根据 href 重新定位元素
+            link = driver.find_element(By.XPATH, f"//a[@href='{link_href}' or text()='{link_href}']")
             name = link.get_attribute('aria-label') or link.text
             if not name:
                 continue
@@ -115,80 +131,42 @@ def extract_business_info(driver, search_url, limit=10):
 
             print(f"点击商家: {name}")
             ActionChains(driver).move_to_element(link).click().perform()
-            time.sleep(3)
+            time.sleep(3)  # 确保页面加载
 
             current_url = driver.current_url
             if "/maps/place/" not in current_url:
                 print(f"未跳转到商家详情页，当前 URL: {current_url}")
                 continue
 
-            info_panel_selectors = [
-                'div[role="region"][aria-label*="Information for"]',
-                'div[role="region"][aria-label*="商家信息"]',
-                'div[role="main"]',
-                'div.m6QErb',
-                'div.W4Efsd',
-                'div.fontBodyMedium',
-                'div[aria-label*="Business information"]'
-            ]
-            info_panel = None
-            for selector in info_panel_selectors:
-                info_panel = wait_for_element(driver, selector, timeout=15)
-                if info_panel:
-                    print(f"使用选择器 {selector} 找到信息面板")
-                    break
-
+            info_panel = wait_for_element(driver, 'div[role="region"][aria-label*="Information for"], div.m6QErb')
             if not info_panel:
                 print(f"未找到 {name} 的信息面板，跳过")
                 continue
+            print(f"找到 {name} 的信息面板")
 
-            business_data = {'name': name}
-            all_elements = info_panel.find_elements(By.CSS_SELECTOR,
-                                                    'button[aria-label], div[data-item-id], div.Io6YTe, div.W4Efsd, span.ZDu9vd, a[href], div.fontBodyMedium, div[role="main"] div')
+            business_data = {'name': name, 'website': None}
 
-            business_data['address'] = None
-            business_data['hours'] = None
-            business_data['website'] = None
-            business_data['phone'] = None
-            business_data['plusCode'] = None
-
-            for elem in all_elements:
-                text = (elem.get_attribute('aria-label') or elem.text).strip()
-                if not text:
-                    continue
-
-                if ('Address:' in text or '地址' in text) and not business_data['address']:
-                    address_text = text.replace('Address: ', '').replace('地址：', '').strip()
-                    if not re.match(r'^\d+\.\d+\(\d+\)', address_text):
-                        business_data['address'] = address_text
-
-                if ('hours' in text.lower() or '营业时间' in text or 'Open' in text or 'Closed' in text) and not business_data['hours']:
-                    hours_text = text.strip()
-                    if not re.match(r'^\d+\.\d+\(\d+\)', hours_text) and any(day in hours_text.lower() for day in ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'open', 'closed']):
-                        business_data['hours'] = hours_text
-
-                if ('Phone:' in text or '电话' in text or re.match(r'\+?\d[\d\s-]+', text)) and not business_data['phone']:
-                    phone_text = text.replace('Phone: ', '').replace('电话：', '').strip()
-                    if re.match(r'\+?\d[\d\s-]+', phone_text):
-                        business_data['phone'] = phone_text
-
-                if ('Website:' in text or '网站' in text or elem.get_attribute('href')) and not business_data['website']:
-                    href = elem.get_attribute('href')
-                    if href and ('http' in href or 'www' in href) and 'google.com/maps' not in href:
-                        business_data['website'] = href
-
-                if ('Plus code:' in text or 'Plus Code' in text or re.match(r'[A-Z0-9]+\+[A-Z0-9]+', text)) and not business_data['plusCode']:
-                    plus_code_text = text.replace('Plus code: ', '').strip()
-                    if re.match(r'[A-Z0-9]+\+[A-Z0-9]+', plus_code_text):
-                        business_data['plusCode'] = plus_code_text
+            # 精准提取网站
+            website_elem = wait_for_element(driver, 'a[aria-label*="Website:"], a[data-item-id="authority"]', timeout=3)
+            if website_elem:
+                href = website_elem.get_attribute('href')
+                business_data['website'] = href
+                print(f"提取到网站: {href}")
+            else:
+                print(f"未找到 {name} 的网站元素，使用备用选择器")
+                website_elem = wait_for_element(driver, 'a[href^="http"]:not([href*="google.com"])', timeout=3)
+                if website_elem:
+                    href = website_elem.get_attribute('href')
+                    business_data['website'] = href
+                    print(f"备用选择器提取到网站: {href}")
 
             results.append(business_data)
             print(f"成功提取 {name} 的信息: {business_data}")
-            progress = int((i + 1) / total * 100)
-            yield progress, name, business_data, None  # 使用生成器返回进度和数据
+            progress = int((i + 1) / total * 100) if total > 0 else 100
+            yield progress, name, business_data, None
 
         except Exception as e:
-            print(f"提取 {name} 时出错: {e}", file=sys.stderr)
+            print(f"提取 {link_href} 时出错: {e}", file=sys.stderr)
             continue
 
-    yield 100, None, None, "数据提取完成"  # 任务完成
+    yield 100, None, None, "数据提取完成"
