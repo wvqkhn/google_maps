@@ -2,37 +2,50 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>提取结果</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提取结果 - Google Maps 数据提取</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result-container {
+            max-width: 800px;
+            margin: 50px auto;
+        }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h2 class="text-center">提取结果</h2>
-        <table class="table table-striped mt-4">
-            <thead>
-                <tr>
-                    <th>名称</th>
-                    <th>地址</th>
-                    <th>营业时间</th>
-                    <th>网站</th>
-                    <th>电话</th>
-                    <th>Plus Code</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in data %}
+    <div class="container result-container">
+        <h2 class="text-center mb-4">提取结果</h2>
+        {% if data %}
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td>{{ item.name | default('N/A') }}</td>
-                        <td>{{ item.address | default('N/A') }}</td>
-                        <td>{{ item.hours | default('N/A') }}</td>
-                        <td>{{ item.website | default('N/A') }}</td>
-                        <td>{{ item.phone | default('N/A') }}</td>
-                        <td>{{ item.plusCode | default('N/A') }}</td>
+                        <th>名称</th>
+                        <th>地址</th>
+                        <th>营业时间</th>
+                        <th>网站</th>
+                        <th>电话</th>
+                        <th>Plus Code</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="{{ url_for('download_file', filename=csv_file) }}" class="btn btn-success">下载 Excel</a>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                        <tr>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.address or '无' }}</td>
+                            <td>{{ item.hours or '无' }}</td>
+                            <td>{{ item.website or '无' }}</td>
+                            <td>{{ item.phone or '无' }}</td>
+                            <td>{{ item.plusCode or '无' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if csv_file %}
+                <a href="{{ url_for('download_file', filename=csv_file) }}" class="btn btn-success">下载 CSV</a>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-warning">未提取到数据</div>
+        {% endif %}
         <a href="{{ url_for('operation') }}" class="btn btn-primary mt-3">返回操作页面</a>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

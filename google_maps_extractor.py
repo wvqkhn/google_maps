@@ -12,9 +12,9 @@ import os
 import sys
 import io
 
-# 设置标准输出和标准错误流的编码为 UTF-8，并指定 errors='replace'
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# 设置标准输出和标准错误流的编码为 UTF-8
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 配置 Chrome 选项
 chrome_options = Options()
@@ -59,7 +59,7 @@ def wait_for_element(selector, timeout=10):
         )
         return element
     except Exception as e:
-        print(f"未找到元素 {selector}: {e}", file=sys.stderr)
+        print(f"未找到元素 {selector}: {e}", file=sys.stderr, errors='replace')
         return None
 
 
@@ -141,7 +141,7 @@ def extract_single_business_info():
         print(f"成功提取 {name} 的信息: {business_data}")
 
     except Exception as e:
-        print(f"提取单个商家信息时出错: {e}", file=sys.stderr)
+        print(f"提取单个商家信息时出错: {e}", file=sys.stderr, errors='replace')
 
     return results
 
@@ -152,7 +152,7 @@ def extract_business_info(search_url, limit=10):
     try:
         driver.get(search_url)
     except Exception as e:
-        print(f"访问 URL 失败: {e}", file=sys.stderr)
+        print(f"访问 URL 失败: {e}", file=sys.stderr, errors='replace')
         return []
 
     if "/place/" in search_url:
@@ -222,7 +222,7 @@ def extract_business_info(search_url, limit=10):
             print(f"成功提取 {name} 的信息: {business_data}")
 
         except Exception as e:
-            print(f"提取 {name} 时出错: {e}", file=sys.stderr)
+            print(f"提取 {name} 时出错: {e}", file=sys.stderr, errors='replace')
             continue
 
     return results
