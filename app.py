@@ -136,11 +136,12 @@ def extract_contacts():
                     return
 
                 driver, proxy_info = get_chrome_driver(proxy)
-                socketio.emit('contact_update', {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
+                socketio.emit('contact_update',
+                              {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
 
                 for i, name, business_data, message in extract_contact_info(driver, business_data_store):
                     socketio.emit('contact_update', {
-                        'progress': i,
+                        'progress': int((i + 1) / len(business_data_store) * 100),  # 修正进度计算
                         'name': name,
                         'business_data': business_data,
                         'message': message

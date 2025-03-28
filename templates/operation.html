@@ -129,15 +129,22 @@
             <tr>
                 <th>Name</th>
                 <th>Website</th>
-                <th>Email</th>
-                <th>Phone</th>
+                <th>Emails</th>
+                <th>Phones</th>
                 <th>Facebook</th>
+                <th>Twitter</th>
+                <th>Instagram</th>
+                <th>LinkedIn</th>
+                <th>WhatsApp</th>
+                <th>YouTube</th>
             </tr>
         </thead>
         <tbody id="business-table-body">
         </tbody>
     </table>
-    <a id="download-link" href="#">Download CSV</a>
+    <div id="download-link" style="display: none;">
+        <a href="#">Download CSV</a>
+    </div>
 
     <script>
         const socket = io();
@@ -154,6 +161,8 @@
             const proxy = document.getElementById('proxy').value;
 
             tableBody.innerHTML = '';
+            downloadLink.style.display = 'none';
+            extractContactsBtn.style.display = 'none';
             progressDiv.textContent = 'Progress: 0% - Task started...';
 
             fetch('/start_extraction', {
@@ -196,29 +205,41 @@
             });
         });
 
+        function formatField(value) {
+            if (Array.isArray(value)) {
+                return value.length ? value.map(v => v.includes('http') ? `<a href="${v}" target="_blank">${v}</a>` : v).join(', ') : 'N/A';
+            }
+            return value ? (value.includes('http') ? `<a href="${value}" target="_blank">${value}</a>` : value) : 'N/A';
+        }
+
         socket.on('progress_update', function(data) {
             progressDiv.textContent = `Progress: ${data.progress}% - ${data.message || ''}`;
 
             if (data.business_data) {
                 const row = document.createElement('tr');
-                row.dataset.name = data.business_data.name;  // 添加唯一标识
+                row.dataset.name = data.business_data.name;
                 row.innerHTML = `
                     <td>${data.business_data.name || 'N/A'}</td>
-                    <td>${data.business_data.website ? '<a href="' + data.business_data.website + '" target="_blank">' + data.business_data.website + '</a>' : 'N/A'}</td>
-                    <td>${data.business_data.email || 'N/A'}</td>
-                    <td>${data.business_data.phone || 'N/A'}</td>
-                    <td>${data.business_data.facebook ? '<a href="' + data.business_data.facebook + '" target="_blank">' + data.business_data.facebook + '</a>' : 'N/A'}</td>
+                    <td>${formatField(data.business_data.website)}</td>
+                    <td>${formatField(data.business_data.emails)}</td>
+                    <td>${formatField(data.business_data.phones)}</td>
+                    <td>${formatField(data.business_data.facebook)}</td>
+                    <td>${formatField(data.business_data.twitter)}</td>
+                    <td>${formatField(data.business_data.instagram)}</td>
+                    <td>${formatField(data.business_data.linkedin)}</td>
+                    <td>${formatField(data.business_data.whatsapp)}</td>
+                    <td>${formatField(data.business_data.youtube)}</td>
                 `;
                 tableBody.appendChild(row);
             }
 
             if (data.progress === 100) {
-                extractContactsBtn.style.display = 'block';  // 显示联系方式提取按钮
                 if (data.csv_file) {
-                    downloadLink.href = `/download/${data.csv_file}`;
                     downloadLink.style.display = 'block';
-                    downloadLink.textContent = `Download CSV (${data.csv_file})`;
+                    downloadLink.querySelector('a').href = `/download/${data.csv_file}`;
+                    downloadLink.querySelector('a').textContent = `Download CSV (${data.csv_file})`;
                 }
+                extractContactsBtn.style.display = 'block';
             }
         });
 
@@ -230,18 +251,23 @@
                 if (existingRow) {
                     existingRow.innerHTML = `
                         <td>${data.business_data.name || 'N/A'}</td>
-                        <td>${data.business_data.website ? '<a href="' + data.business_data.website + '" target="_blank">' + data.business_data.website + '</a>' : 'N/A'}</td>
-                        <td>${data.business_data.email || 'N/A'}</td>
-                        <td>${data.business_data.phone || 'N/A'}</td>
-                        <td>${data.business_data.facebook ? '<a href="' + data.business_data.facebook + '" target="_blank">' + data.business_data.facebook + '</a>' : 'N/A'}</td>
+                        <td>${formatField(data.business_data.website)}</td>
+                        <td>${formatField(data.business_data.emails)}</td>
+                        <td>${formatField(data.business_data.phones)}</td>
+                        <td>${formatField(data.business_data.facebook)}</td>
+                        <td>${formatField(data.business_data.twitter)}</td>
+                        <td>${formatField(data.business_data.instagram)}</td>
+                        <td>${formatField(data.business_data.linkedin)}</td>
+                        <td>${formatField(data.business_data.whatsapp)}</td>
+                        <td>${formatField(data.business_data.youtube)}</td>
                     `;
                 }
             }
 
             if (data.progress === 100 && data.csv_file) {
-                downloadLink.href = `/download/${data.csv_file}`;
                 downloadLink.style.display = 'block';
-                downloadLink.textContent = `Download CSV (${data.csv_file})`;
+                downloadLink.querySelector('a').href = `/download/${data.csv_file}`;
+                downloadLink.querySelector('a').textContent = `Download CSV (${data.csv_file})`;
             }
         });
     </script>
