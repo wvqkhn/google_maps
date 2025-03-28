@@ -26,7 +26,14 @@ def scroll_page(driver, scroll_times=3, scroll_delay=1):
 def is_valid_email(email):
     """验证是否为有效邮箱，排除图片文件名等无效项"""
     invalid_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')
-    return not any(email.lower().endswith(ext) for ext in invalid_extensions) and len(email) <= 254
+    invalid_patterns = [r'\d+x\d*', r'logo', r'image', r'img']  # 排除常见图片模式，如 180x, logo
+    email_lower = email.lower()
+    # 检查是否包含图片扩展名或模式
+    if any(email_lower.endswith(ext) for ext in invalid_extensions) or \
+       any(re.search(pattern, email_lower) for pattern in invalid_patterns):
+        return False
+    # 检查长度和基本格式
+    return len(email) <= 254 and re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email) is not None
 
 def extract_contact_info(driver, business_data_list):
     """访问每个商家的网站并提取联系方式"""
@@ -58,7 +65,7 @@ def extract_contact_info(driver, business_data_list):
             phones = set()
 
             # 提取 Emails 和 Phones（主页面）
-            email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?!\.(?:png|jpg|jpeg|gif|bmp|svg))"
+            email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
             phone_pattern = r"(\+?\d{1,4}[\s.-]?)?(\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{4,6}|\d{8,14}"
 
             # 从文本和源代码提取邮箱
