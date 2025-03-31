@@ -84,11 +84,11 @@ def extract_contact_info(driver, business_data_list):
                     emails.add(mailto_match.group(1))
 
             # 提取电话
-            phone_matches = re.findall(phone_pattern, page_text)
-            for phone_tuple in phone_matches:
-                phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
-                if len(phone) >= 8:
-                    phones.add(phone)
+            # phone_matches = re.findall(phone_pattern, page_text)
+            # for phone_tuple in phone_matches:
+            #     phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
+            #     if len(phone) >= 8:
+            #         phones.add(phone)
 
             # 尝试点击“联系我们”或类似链接
             contact_keywords = [
@@ -121,18 +121,18 @@ def extract_contact_info(driver, business_data_list):
                         mailto_match = re.search(r"mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", href)
                         if mailto_match and is_valid_email(mailto_match.group(1)):
                             emails.add(mailto_match.group(1))
-                    phone_matches = re.findall(phone_pattern, contact_page_text)
-                    for phone_tuple in phone_matches:
-                        phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
-                        if len(phone) >= 8:
-                            phones.add(phone)
+                    # phone_matches = re.findall(phone_pattern, contact_page_text)
+                    # for phone_tuple in phone_matches:
+                    #     phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
+                    #     if len(phone) >= 8:
+                    #         phones.add(phone)
                     print(f"从 {name} 的联系页面提取到额外信息")
                 except Exception as e:
                     print(f"点击 {name} 的联系页面失败: {e}")
 
             # 保存提取结果
             business['emails'] = list(emails) if emails else []
-            business['phones'] = list(phones) if phones else []
+            # business['phones'] = list(phones) if phones else []
             if business['emails']:
                 print(f"提取到 {name} 的邮箱: {business['emails']}")
             else:
