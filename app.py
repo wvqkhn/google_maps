@@ -170,4 +170,4 @@ def extract_contacts():
     return jsonify({"status": "success", "message": "联系方式提取任务已启动..."})
 
 if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=80, debug=True)
