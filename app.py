@@ -8,7 +8,7 @@ from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR
 from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
-from utils import save_to_csv
+from utils import save_to_csv,save_to_excel
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -89,7 +89,7 @@ def start_extraction():
                 if extracted_data:
                     global business_data_store
                     business_data_store = extracted_data  # 存储数据供后续使用
-                    csv_filename = save_to_csv(extracted_data)
+                    csv_filename = save_to_excel(extracted_data)
                     socketio.emit('progress_update', {
                         'progress': 100,
                         'csv_file': csv_filename,
@@ -147,7 +147,7 @@ def extract_contacts():
                         'message': message
                     })
 
-                csv_filename = save_to_csv(business_data_store)
+                csv_filename = save_to_excel(business_data_store)
                 socketio.emit('contact_update', {
                     'progress': 100,
                     'csv_file': csv_filename,
