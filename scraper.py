@@ -176,7 +176,31 @@ def extract_business_info(driver, search_url, limit=500):
                     href = website_elem.get_attribute('href')
                     business_data['website'] = href
                     print(f"备用选择器提取到网站: {href}")
-
+            # 添加手机号提取逻辑（仅根据元素）
+            business_data['phones'] = []  # 初始化 phones 字段
+            phone_elem = wait_for_element(driver, 'button[data-item-id^="phone"], div[aria-label*="Phone:"]', timeout=3)
+            if phone_elem:
+                phone_text = phone_elem.text.strip()
+                if phone_text:
+                    # 清理常见分隔符，保留数字和加号
+                    phone = ''.join(c for c in phone_text if c.isdigit() or c == '+')
+                    if len(phone) >= 8:  # 确保是有效长度
+                        business_data['phones'].append(phone)
+                        print(f"提取到手机号: {phone}")
+            else:
+                print(f"未找到 {name} 的手机号元素，使用备用选择器")
+                # 备用选择器：从页面中寻找包含电话图标的元素
+                backup_phone_elem = wait_for_element(driver,
+                                                     'div.rogA2c span.google-symbols[aria-hidden="true"] + div.Io6YTe',
+                                                     timeout=3)
+                if backup_phone_elem:
+                    phone_text = backup_phone_elem.text.strip()
+                    if phone_text:
+                        phone = ''.join(c for c in phone_text if c.isdigit() or c == '+')
+                        if len(phone) >= 8:
+                            business_data['phones'].append(phone)
+                            print(f"备用选择器提取到手机号: {phone}")
+            business_data['phones'] = list(set(business_data['phones']))  # 去重
             results.append(business_data)
             print(f"成功提取 {name} 的信息: {business_data}")
             yield progress, name, business_data, f"成功提取: {name}"
