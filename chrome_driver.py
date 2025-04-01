@@ -75,6 +75,9 @@ def get_chrome_driver(proxy=None):
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument("--disable-webgl")  # 禁用 WebGL
+    chrome_options.add_argument("--disable-accelerated-2d-canvas")  # 禁用 2D 加速
+    chrome_options.add_argument("--disable-accelerated-video-decode")  # 禁用视频解码加速
     chrome_options.binary_location = CHROME_BINARY
 
     proxy_info = None
