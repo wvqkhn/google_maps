@@ -8,7 +8,7 @@ from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR
 from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
-from utils import save_to_csv,save_to_excel
+from utils import save_to_csv, save_to_excel
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -19,6 +19,27 @@ socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED_ORIGINS)
 
 # 存储提取的商家数据
 business_data_store = []
+
+# 全局任务管理器：存储线程和 driver 实例
+running_tasks = {}  # 格式: {task_id: {'thread': Thread, 'driver': WebDriver}}
+
+def terminate_all_tasks():
+    """终止所有正在运行的任务和 driver 实例"""
+    global running_tasks
+    for task_id, task_info in list(running_tasks.items()):  # 使用 list 避免运行时修改字典
+        thread = task_info['thread']
+        driver = task_info['driver']
+        try:
+            if driver:
+                driver.quit()
+                print(f"任务 {task_id} 的 Selenium driver 已终止", file=sys.stderr)
+            if thread.is_alive():
+                # 注意：Python 线程无法强制终止，这里仅记录状态
+                print(f"任务 {task_id} 的线程仍在运行，等待其自然结束", file=sys.stderr)
+        except Exception as e:
+            print(f"终止任务 {task_id} 失败: {e}", file=sys.stderr)
+    running_tasks.clear()
+    print("所有任务已清理", file=sys.stderr)
 
 @app.route('/')
 def index():
@@ -67,15 +88,22 @@ def start_extraction():
     except (ValueError, TypeError):
         return jsonify({"status": "error", "message": "limit 必须是一个有效的正整数"}), 400
 
-    def background_extraction(search_url, limit, proxy=None):
+    # 在新任务开始前终止所有现有任务
+    terminate_all_tasks()
+    socketio.emit('progress_update', {'progress': 0, 'message': '正在清理旧任务...'})
+
+    # 生成唯一的任务 ID（这里简单用时间戳）
+    task_id = f"extract_{os.urandom(4).hex()}"
+
+    def background_extraction(search_url, limit, proxy=None, task_id=task_id):
         driver = None
         with app.app_context():
             try:
                 driver, proxy_info = get_chrome_driver(proxy)
+                running_tasks[task_id] = {'thread': threading.current_thread(), 'driver': driver}
                 socketio.emit('progress_update', {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
 
                 extracted_data = []
-                # 遍历生成器对象，收集数据
                 for progress, current, business_data, message in extract_business_info(driver, search_url, limit):
                     if business_data:
                         extracted_data.append(business_data)
@@ -88,7 +116,7 @@ def start_extraction():
 
                 if extracted_data:
                     global business_data_store
-                    business_data_store = extracted_data  # 存储数据供后续使用
+                    business_data_store = extracted_data
                     csv_filename = save_to_excel(extracted_data)
                     socketio.emit('progress_update', {
                         'progress': 100,
@@ -102,7 +130,7 @@ def start_extraction():
                         'message': '未提取到任何数据'
                     })
             except Exception as e:
-                print(f"后台任务发生异常: {e}", file=sys.stderr)
+                print(f"后台任务 {task_id} 发生异常: {e}", file=sys.stderr)
                 socketio.emit('progress_update', {
                     'progress': 100,
                     'message': f'后台任务出错: {e}'
@@ -110,12 +138,14 @@ def start_extraction():
             finally:
                 if driver:
                     driver.quit()
+                if task_id in running_tasks:
+                    del running_tasks[task_id]  # 任务完成后移除
 
-    thread = threading.Thread(target=background_extraction, args=(url, limit, proxy))
+    thread = threading.Thread(target=background_extraction, args=(url, limit, proxy, task_id))
     thread.daemon = True
     thread.start()
 
-    return jsonify({"status": "success", "message": "任务已启动，正在提取数据..."})
+    return jsonify({"status": "success", "message": "任务已启动，正在提取数据...", "task_id": task_id})
 
 @app.route('/extract_contacts', methods=['POST'])
 def extract_contacts():
@@ -141,7 +171,7 @@ def extract_contacts():
 
                 for i, name, business_data, message in extract_contact_info(driver, business_data_store):
                     socketio.emit('contact_update', {
-                        'progress': int((i + 1) / len(business_data_store) * 100),  # 修正进度计算
+                        'progress': int((i + 1) / len(business_data_store) * 100),
                         'name': name,
                         'business_data': business_data,
                         'message': message
