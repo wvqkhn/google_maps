@@ -67,7 +67,7 @@
         <div id="email-progress"></div>
     </div>
 
-    <script>
+     <script>
        // 初始化 TinyMCE
         tinymce.init({
             selector: '#email-body',
@@ -92,13 +92,18 @@
         const csvFile = urlParams.get('file') || 'No file generated';
         const emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
         const progressDiv = document.getElementById('email-progress');
+        const recipientInput = document.getElementById('recipient'); // 获取 recipient 输入框元素
+
+        // 将 URL 中的邮箱地址填充到 recipient 输入框中
+        if (emails && emails.length > 0) {
+            recipientInput.value = emails[0]; // 假设 URL 中只传递一个邮箱地址，或者您想默认显示第一个
+        }
 
         // 发送邮件逻辑
         document.getElementById('send-email').addEventListener('click', async function() {
             const subject = document.getElementById('subject').value;
             const body = tinymce.get('email-body').getContent();
             const attachFile = document.getElementById('attach-file').checked;
-            const recipientInput = document.getElementById('recipient');
             const sendButton = document.getElementById('send-email');
             sendButton.disabled = true;
 

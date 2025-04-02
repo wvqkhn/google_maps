@@ -222,7 +222,6 @@ def send_email_route():
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
 
     success, message = EmailSender().send_email(recipient, subject, body, attach_file)
-    success, message='',''
     if success:
         return jsonify({"status": "success", "message": message})
     else:
