@@ -4,7 +4,7 @@ import os
 import threading
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for, send_file
 from flask_socketio import SocketIO
-from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR
+from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR,PASSWORD
 from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
@@ -50,7 +50,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        if username == 'admin' and password == app.config.get('password'):
+        if username == 'admin' and password == PASSWORD:
             session['logged_in'] = True
             return redirect(url_for('operation'))
         else:
