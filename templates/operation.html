@@ -121,6 +121,7 @@
         <input type="text" id="proxy" name="proxy">
         <button type="submit">Start Extraction</button>
         <button type="button" id="extract-contacts-btn" style="display: none;">Extract Contact Info</button>
+        <button type="button" id="send-email-btn" >Send Email</button> <!-- 新增按钮 -->
     </form>
 
     <div id="progress">Progress: 0% - Waiting...</div>
@@ -153,7 +154,8 @@
         const tableBody = document.getElementById('business-table-body');
         const downloadLink = document.getElementById('download-link');
         const extractContactsBtn = document.getElementById('extract-contacts-btn');
-
+        const sendEmailBtn = document.getElementById('send-email-btn');
+        let latestCsvFile = null; // 新增变量存储最新文件名
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const url = document.getElementById('url').value;
@@ -269,6 +271,29 @@
                 downloadLink.querySelector('a').href = `/download/${data.csv_file}`;
                 downloadLink.querySelector('a').textContent = `Download CSV (${data.csv_file})`;
             }
+        });
+        // 新增发送邮件按钮事件：打开新窗口
+  // 发送邮件按钮事件：从表格中获取邮箱并打开新窗口
+        sendEmailBtn.addEventListener('click', function() {
+            // 从表格中提取所有邮箱
+            const emailList = [];
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const emailCell = row.cells[2]; // Emails 列是第 3 列（索引 2）
+                const emailsText = emailCell.textContent.trim();
+                if (emailsText !== 'N/A') {
+                    const emails = emailsText.split(', ');
+                    emails.forEach(email => {
+                        if (email && !email.includes('http')) { // 排除链接，只保留纯邮箱
+                            emailList.push(email);
+                        }
+                    });
+                }
+            });
+
+            const uniqueEmails = [...new Set(emailList)]; // 去重
+            const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
+            window.open(`/send_email_page?file=${encodeURIComponent(latestCsvFile || '')}&emails=${emailsParam}`, '_blank', 'width=800,height=700');
         });
     </script>
 </body>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Send Email</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f7f9;
+        }
+        .email-container {
+            max-width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            font-weight: bold;
+            color: #555;
+        }
+        .btn-send {
+            background-color: #007bff;
+            color: white;
+            width: 100%;
+        }
+        .btn-send:hover {
+            background-color: #0056b3;
+        }
+        #email-progress {
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.tiny.cloud/1/kf40zdu58dqe3bhscnrcegr8fyagpuqq07u60szoxfht62pw/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+</head>
+<body>
+    <div class="email-container">
+        <h2>Send Extraction Results</h2>
+        <div class="form-group">
+            <label for="recipient">Recipient Email:</label>
+            <input type="email" class="form-control" id="recipient">
+        </div>
+        <div class="form-group">
+            <label for="subject">Subject:</label>
+            <input type="text" class="form-control" id="subject" value="Google Maps Extraction Results">
+        </div>
+        <div class="form-group">
+            <label for="email-body">Email Body:</label>
+            <textarea class="form-control" id="email-body" rows="8"></textarea>
+        </div>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="attach-file" checked>
+            <label class="form-check-label" for="attach-file">Attach CSV File</label>
+        </div>
+        <button class="btn btn-send mt-3" id="send-email">Send to All</button>
+        <div id="email-progress"></div>
+    </div>
+
+    <script>
+       // 初始化 TinyMCE
+        tinymce.init({
+            selector: '#email-body',
+            height: 300,
+            width: '100%', // Set the width to 100% of its parent container
+            menubar: false,
+            plugins: 'link image lists',
+            toolbar: 'undo redo | bold italic | alignleft aligncenter alignright | bullist numlist | link image',
+            init_instance_callback: function (editor) {
+                // 从 URL 获取参数
+                const urlParams = new URLSearchParams(window.location.search);
+                const csvFile = urlParams.get('file') || 'No file generated';
+                const emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
+
+                // 初始化邮件内容
+                editor.setContent(`<p>Hello,</p><p>Here are the Google Maps extraction results:</p><ul><li>Extraction Time: ${new Date().toLocaleString()}</li><li>File: ${csvFile}</li></ul><p>Please see the attached file or download it from the link.</p><p>Regards,<br>[Your Name]</p>`);
+            }
+        });
+
+        // 从 URL 获取参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const csvFile = urlParams.get('file') || 'No file generated';
+        const emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
+        const progressDiv = document.getElementById('email-progress');
+
+        // 发送邮件逻辑
+        document.getElementById('send-email').addEventListener('click', async function() {
+            const subject = document.getElementById('subject').value;
+            const body = tinymce.get('email-body').getContent();
+            const attachFile = document.getElementById('attach-file').checked;
+            const recipientInput = document.getElementById('recipient');
+            const sendButton = document.getElementById('send-email');
+            sendButton.disabled = true;
+
+            let emailsToSend = emails; // Start with the emails from the URL
+            if (emailsToSend.length === 0 && recipientInput.value) {
+                // If no emails from URL and recipient input has a value, use the manual input
+                emailsToSend = [recipientInput.value];
+            } else if (emailsToSend.length === 0) {
+                progressDiv.textContent = 'No emails to send.';
+                sendButton.disabled = false;
+                return;
+            }
+
+            let successCount = 0;
+            for (let i = 0; i < emailsToSend.length; i++) {
+                const email = emailsToSend[i];
+                recipientInput.value = email;
+                progressDiv.textContent = `Sending email ${i + 1}/${emailsToSend.length} to ${email}...`;
+
+                try {
+                    const response = await fetch('/send_email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            recipient: email,
+                            subject: subject,
+                            body: body,
+                            attach_file: attachFile ? csvFile : null
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        successCount++;
+                        progressDiv.textContent = `Sent ${i + 1}/${emailsToSend.length} emails. Success: ${successCount}`;
+                    } else {
+                        progressDiv.textContent = `Failed to send to ${email}: ${data.message}`;
+                    }
+                } catch (error) {
+                    progressDiv.textContent = `Error sending to ${email}: ${error}`;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟 1 秒，避免邮件服务器限制
+            }
+
+            progressDiv.textContent = `Completed! Sent ${successCount}/${emailsToSend.length} emails.`;
+            sendButton.disabled = false;
+            setTimeout(() => window.close(), 2000); // 2 秒后关闭窗口
+        });
+    </script>
+</body>
+</html>

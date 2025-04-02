@@ -9,6 +9,7 @@ from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
 from utils import save_to_csv, save_to_excel
+from email_sender import EmailSender  # Import the EmailSender class
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -199,5 +200,32 @@ def extract_contacts():
 
     return jsonify({"status": "success", "message": "联系方式提取任务已启动..."})
 
+@app.route('/send_email_page')
+def send_email_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return render_template('send_email.html')
+
+# 确保已有 /send_email 路由（参考之前的 email_service.py）
+@app.route('/send_email', methods=['POST'])
+def send_email_route():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "Please log in"}), 401
+
+    data = request.get_json()
+    recipient = data.get('recipient')
+    subject = data.get('subject')
+    body = data.get('body')
+    attach_file = data.get('attach_file')
+
+    if not recipient or not subject or not body:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+    success, message = EmailSender().send_email(recipient, subject, body, attach_file)
+    success, message='',''
+    if success:
+        return jsonify({"status": "success", "message": message})
+    else:
+        return jsonify({"status": "error", "message": message})
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=80, debug=True)
