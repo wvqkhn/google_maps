@@ -50,7 +50,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        if username == 'admin' and password == 'password':
+        if username == 'admin' and password == app.config['password']:
             session['logged_in'] = True
             return redirect(url_for('operation'))
         else:
