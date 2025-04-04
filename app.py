@@ -4,12 +4,13 @@ import os
 import threading
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for, send_file
 from flask_socketio import SocketIO
-from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR,PASSWORD
+from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR, PASSWORD
 from chrome_driver import get_chrome_driver
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
 from utils import save_to_csv, save_to_excel
-from email_sender import EmailSender  # Import the EmailSender class
+from email_sender import EmailSender
+from db import save_business_data_to_db  # 导入保存函数
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -22,12 +23,12 @@ socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED_ORIGINS)
 business_data_store = []
 
 # 全局任务管理器：存储线程和 driver 实例
-running_tasks = {}  # 格式: {task_id: {'thread': Thread, 'driver': WebDriver}}
+running_tasks = {}
 
 def terminate_all_tasks():
     """终止所有正在运行的任务和 driver 实例"""
     global running_tasks
-    for task_id, task_info in list(running_tasks.items()):  # 使用 list 避免运行时修改字典
+    for task_id, task_info in list(running_tasks.items()):
         thread = task_info['thread']
         driver = task_info['driver']
         try:
@@ -35,7 +36,6 @@ def terminate_all_tasks():
                 driver.quit()
                 print(f"任务 {task_id} 的 Selenium driver 已终止", file=sys.stderr)
             if thread.is_alive():
-                # 注意：Python 线程无法强制终止，这里仅记录状态
                 print(f"任务 {task_id} 的线程仍在运行，等待其自然结束", file=sys.stderr)
         except Exception as e:
             print(f"终止任务 {task_id} 失败: {e}", file=sys.stderr)
@@ -89,11 +89,9 @@ def start_extraction():
     except (ValueError, TypeError):
         return jsonify({"status": "error", "message": "limit 必须是一个有效的正整数"}), 400
 
-    # 在新任务开始前终止所有现有任务
     terminate_all_tasks()
     socketio.emit('progress_update', {'progress': 0, 'message': '正在清理旧任务...'})
 
-    # 生成唯一的任务 ID（这里简单用时间戳）
     task_id = f"extract_{os.urandom(4).hex()}"
 
     def background_extraction(search_url, limit, proxy=None, task_id=task_id):
@@ -140,7 +138,7 @@ def start_extraction():
                 if driver:
                     driver.quit()
                 if task_id in running_tasks:
-                    del running_tasks[task_id]  # 任务完成后移除
+                    del running_tasks[task_id]
 
     thread = threading.Thread(target=background_extraction, args=(url, limit, proxy, task_id))
     thread.daemon = True
@@ -178,12 +176,22 @@ def extract_contacts():
                         'message': message
                     })
 
+                # 联系方式提取完成后保存到 Excel 和数据库
                 csv_filename = save_to_excel(business_data_store)
+                socketio.emit('contact_update', {
+                    'progress': 95,
+                    'csv_file': csv_filename,
+                    'message': '联系方式提取完成，正在保存到数据库...'
+                })
+
+                # 保存到数据库
+                save_business_data_to_db(business_data_store)
                 socketio.emit('contact_update', {
                     'progress': 100,
                     'csv_file': csv_filename,
-                    'message': '联系方式提取完成'
+                    'message': '联系方式提取完成并已保存到数据库'
                 })
+
             except Exception as e:
                 print(f"联系方式提取任务发生异常: {e}", file=sys.stderr)
                 socketio.emit('contact_update', {
@@ -206,7 +214,6 @@ def send_email_page():
         return redirect(url_for('login'))
     return render_template('send_email.html')
 
-# 确保已有 /send_email 路由（参考之前的 email_service.py）
 @app.route('/send_email', methods=['POST'])
 def send_email_route():
     if not session.get('logged_in'):
@@ -226,5 +233,25 @@ def send_email_route():
         return jsonify({"status": "success", "message": message})
     else:
         return jsonify({"status": "error", "message": message})
+
+# 可选：保留此接口供手动保存，但在此场景下无需前端调用
+@app.route('/save_business_data', methods=['POST'])
+def save_business_data():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "请先登录"}), 401
+
+    data = request.get_json()
+    business_data = data.get('business_data', [])
+
+    if not business_data:
+        return jsonify({"status": "error", "message": "商家数据为空"}), 400
+
+    try:
+        save_business_data_to_db(business_data)
+        return jsonify({"status": "success", "message": "商家数据保存成功"})
+    except Exception as e:
+        print(f"保存商家数据失败: {e}", file=sys.stderr)
+        return jsonify({"status": "error", "message": f"保存商家数据失败: {e}"}), 500
+
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=80, debug=True)
