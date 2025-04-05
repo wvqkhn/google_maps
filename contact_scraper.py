@@ -6,6 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from db import save_business_data_to_db  # 导入数据库保存函数
 
 def wait_for_element(driver, selector, timeout=5):
     try:
@@ -28,15 +29,13 @@ def is_valid_email(email):
     invalid_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')
     invalid_patterns = [r'\d+x\d*', r'logo', r'image', r'img']  # 排除常见图片模式，如 180x, logo
     email_lower = email.lower()
-    # 检查是否包含图片扩展名或模式
     if any(email_lower.endswith(ext) for ext in invalid_extensions) or \
        any(re.search(pattern, email_lower) for pattern in invalid_patterns):
         return False
-    # 检查长度和基本格式
     return len(email) <= 254 and re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email) is not None
 
 def extract_contact_info(driver, business_data_list):
-    """访问每个商家的网站并提取联系方式"""
+    """访问每个商家的网站并提取联系方式，提取到邮箱后立即保存到数据库"""
     for i, business in enumerate(business_data_list):
         name = business['name']
         website = business.get('website')
@@ -83,13 +82,6 @@ def extract_contact_info(driver, business_data_list):
                 if mailto_match and is_valid_email(mailto_match.group(1)):
                     emails.add(mailto_match.group(1))
 
-            # 提取电话
-            # phone_matches = re.findall(phone_pattern, page_text)
-            # for phone_tuple in phone_matches:
-            #     phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
-            #     if len(phone) >= 8:
-            #         phones.add(phone)
-
             # 尝试点击“联系我们”或类似链接
             contact_keywords = [
                 'contact', '联系', 'about', '关于', 'get in touch', '联系我们',
@@ -121,26 +113,34 @@ def extract_contact_info(driver, business_data_list):
                         mailto_match = re.search(r"mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", href)
                         if mailto_match and is_valid_email(mailto_match.group(1)):
                             emails.add(mailto_match.group(1))
-                    # phone_matches = re.findall(phone_pattern, contact_page_text)
-                    # for phone_tuple in phone_matches:
-                    #     phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
-                    #     if len(phone) >= 8:
-                    #         phones.add(phone)
                     print(f"从 {name} 的联系页面提取到额外信息")
                 except Exception as e:
                     print(f"点击 {name} 的联系页面失败: {e}")
 
-            # 保存提取结果
+            # 保存提取到的邮箱到数据库
             business['emails'] = list(emails) if emails else []
-            # business['phones'] = list(phones) if phones else []
             if business['emails']:
                 print(f"提取到 {name} 的邮箱: {business['emails']}")
+                # 立即保存到数据库
+                try:
+                    save_business_data_to_db([business])
+                    print(f"已将 {name} 的数据保存到数据库")
+                except Exception as db_error:
+                    print(f"保存 {name} 的数据到数据库失败: {db_error}", file=sys.stderr)
             else:
                 print(f"未在 {name} 的网站找到邮箱")
-            if business['phones']:
-                print(f"提取到 {name} 的电话: {business['phones']}")
-            else:
-                print(f"未在 {name} 的网站找到电话")
+
+            # 提取电话（已注释的部分保持不变）
+            # phone_matches = re.findall(phone_pattern, page_text)
+            # for phone_tuple in phone_matches:
+            #     phone = ''.join(filter(None, phone_tuple)).replace(' ', '').replace('-', '').replace('.', '').replace('(', '').replace(')', '')
+            #     if len(phone) >= 8:
+            #         phones.add(phone)
+            # business['phones'] = list(phones) if phones else []
+            # if business['phones']:
+            #     print(f"提取到 {name} 的电话: {business['phones']}")
+            # else:
+            #     print(f"未在 {name} 的网站找到电话")
 
             # 提取社交媒体和其他联系方式
             social_platforms = {

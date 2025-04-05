@@ -179,18 +179,18 @@ def extract_contacts():
                 # 联系方式提取完成后保存到 Excel 和数据库
                 csv_filename = save_to_excel(business_data_store)
                 socketio.emit('contact_update', {
-                    'progress': 95,
+                    'progress': 100,
                     'csv_file': csv_filename,
                     'message': '联系方式提取完成，正在保存到数据库...'
                 })
 
                 # 保存到数据库
-                save_business_data_to_db(business_data_store)
-                socketio.emit('contact_update', {
-                    'progress': 100,
-                    'csv_file': csv_filename,
-                    'message': '联系方式提取完成并已保存到数据库'
-                })
+                # save_business_data_to_db(business_data_store)
+                # socketio.emit('contact_update', {
+                #     'progress': 100,
+                #     'csv_file': csv_filename,
+                #     'message': '联系方式提取完成并已保存到数据库'
+                # })
 
             except Exception as e:
                 print(f"联系方式提取任务发生异常: {e}", file=sys.stderr)
