@@ -13,38 +13,16 @@ def get_db_connection():
         raise
 
 def save_business_data_to_db(business_data):
-    """将所有商家数据保存到 MySQL 数据库，多邮箱拆分为多行"""
+    """将所有商家数据保存到 MySQL 数据库，多邮箱拆分为多行，重复邮箱则更新数据"""
     connection = None
     cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
 
-        # 创建表（如果不存在）
-        # cursor.execute("""
-        #     CREATE TABLE IF NOT EXISTS business_records (
-        #         id INT AUTO_INCREMENT PRIMARY KEY,
-        #         name VARCHAR(255),
-        #         website TEXT,
-        #         email VARCHAR(255),
-        #         phones TEXT,
-        #         facebook TEXT,
-        #         twitter TEXT,
-        #         instagram TEXT,
-        #         linkedin TEXT,
-        #         whatsapp TEXT,
-        #         youtube TEXT,
-        #         send_count INT DEFAULT 0,  -- 新增发送次数列，默认为 0
-        #         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        #     )
-        # """)
+        # 可选：确保 email 是唯一索引（只需运行一次）
+        # cursor.execute("ALTER TABLE business_records ADD UNIQUE (email)")
 
-        # 检查是否需要添加 send_count 列（兼容已有表）
-        # cursor.execute("SHOW COLUMNS FROM business_records LIKE 'send_count'")
-        # if not cursor.fetchone():
-        #     cursor.execute("ALTER TABLE business_records ADD COLUMN send_count INT DEFAULT 0")
-
-        # 插入数据
         for business in business_data:
             name = business.get('name', '')
             website = business.get('website', '')
@@ -57,19 +35,31 @@ def save_business_data_to_db(business_data):
             whatsapp = business.get('whatsapp', '')
             youtube = business.get('youtube', '')
 
-            if not emails:
+        if not emails:
+            # 没有邮箱，不做更新判断，直接插入
+            cursor.execute("""
+                 INSERT INTO business_records 
+                 (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
+             """, (name, website, None, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube))
+        else:
+            for email in emails:
                 cursor.execute("""
-                    INSERT INTO business_records 
-                    (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (name, website, None, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, 0))
-            else:
-                for email in emails:
-                    cursor.execute("""
-                        INSERT INTO business_records 
-                        (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, 0))
+                     INSERT INTO business_records 
+                     (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
+                     AS new
+                     ON DUPLICATE KEY UPDATE
+                         name = new.name,
+                         website = new.website,
+                         phones = new.phones,
+                         facebook = new.facebook,
+                         twitter = new.twitter,
+                         instagram = new.instagram,
+                         linkedin = new.linkedin,
+                         whatsapp = new.whatsapp,
+                         youtube = new.youtube
+                 """, (name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube))
 
         connection.commit()
         print(f"成功保存 {len(business_data)} 个商家数据到数据库", file=sys.stderr)
@@ -82,6 +72,7 @@ def save_business_data_to_db(business_data):
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
 
 def get_history_records(page, size, query=''):
     """查询历史记录，支持搜索和分页"""
