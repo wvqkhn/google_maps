@@ -38,6 +38,56 @@
         #email-progress {
             margin-top: 10px;
             color: #666;
+            text-align: center;
+        }
+        #recipients-table {
+            width: 100%;
+            border-collapse: collapse;
+            max-height: 200px;
+            overflow-y: auto;
+            display: block;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        #recipients-table th, #recipients-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        #recipients-table th {
+            background-color: #007bff;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        #recipients-table tr:last-child td {
+            border-bottom: none;
+        }
+        #recipients-table .btn-sm {
+            padding: 2px 8px;
+            font-size: 12px;
+        }
+        #add-email-form {
+            display: flex;
+            margin-top: 10px;
+        }
+        #add-email-input {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        #add-email-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        #add-email-btn:hover {
+            background-color: #218838;
+        }
+        .edit-input {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
@@ -48,8 +98,20 @@
     <div class="email-container">
         <h2>Send Extraction Results</h2>
         <div class="form-group">
-            <label for="recipient">Recipient Email:</label>
-            <input type="email" class="form-control" id="recipient">
+            <label for="recipients-table">Recipient Emails:</label>
+            <table id="recipients-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="recipients-table-body"></tbody>
+            </table>
+            <div id="add-email-form">
+                <input type="email" id="add-email-input" class="form-control" placeholder="Enter new email">
+                <button id="add-email-btn" class="btn">Add</button>
+            </div>
         </div>
         <div class="form-group">
             <label for="subject">Subject:</label>
@@ -67,22 +129,18 @@
         <div id="email-progress"></div>
     </div>
 
-     <script>
-       // 初始化 TinyMCE
+    <script>
+        // 初始化 TinyMCE
         tinymce.init({
             selector: '#email-body',
             height: 300,
-            width: '100%', // Set the width to 100% of its parent container
+            width: '100%',
             menubar: false,
             plugins: 'link image lists',
             toolbar: 'undo redo | bold italic | alignleft aligncenter alignright | bullist numlist | link image',
             init_instance_callback: function (editor) {
-                // 从 URL 获取参数
                 const urlParams = new URLSearchParams(window.location.search);
                 const csvFile = urlParams.get('file') || 'No file generated';
-                const emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
-
-                // 初始化邮件内容
                 editor.setContent(`<p>Hello,</p><p>Here are the Google Maps extraction results:</p><ul><li>Extraction Time: ${new Date().toLocaleString()}</li><li>File: ${csvFile}</li></ul><p>Please see the attached file or download it from the link.</p><p>Regards,<br>[Your Name]</p>`);
             }
         });
@@ -90,16 +148,85 @@
         // 从 URL 获取参数
         const urlParams = new URLSearchParams(window.location.search);
         const csvFile = urlParams.get('file') || 'No file generated';
-        const emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
+        let emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
         const progressDiv = document.getElementById('email-progress');
-        const recipientInput = document.getElementById('recipient'); // 获取 recipient 输入框元素
+        const recipientsTableBody = document.getElementById('recipients-table-body');
+        const addEmailInput = document.getElementById('add-email-input');
+        const addEmailBtn = document.getElementById('add-email-btn');
 
-        // 将 URL 中的邮箱地址填充到 recipient 输入框中
-        if (emails && emails.length > 0) {
-            recipientInput.value = emails[0]; // 假设 URL 中只传递一个邮箱地址，或者您想默认显示第一个
+        // 渲染邮箱表格
+        function renderEmails() {
+            recipientsTableBody.innerHTML = '';
+            if (emails && emails.length > 0) {
+                emails.forEach((email, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="email-cell" data-index="${index}">${email}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm edit-btn" data-index="${index}">Edit</button>
+                            <button class="btn btn-danger btn-sm delete-btn" data-index="${index}">Delete</button>
+                        </td>
+                    `;
+                    recipientsTableBody.appendChild(tr);
+                });
+            } else {
+                recipientsTableBody.innerHTML = '<tr><td colspan="2">No recipients provided</td></tr>';
+            }
         }
 
-        // 发送邮件逻辑
+        // 初始渲染邮箱列表
+        renderEmails();
+
+        // 操作事件
+        recipientsTableBody.addEventListener('click', function(e) {
+            const index = parseInt(e.target.getAttribute('data-index'));
+
+            if (e.target.classList.contains('delete-btn')) {
+                emails.splice(index, 1);
+                renderEmails();
+            } else if (e.target.classList.contains('edit-btn')) {
+                const emailCell = document.querySelector(`.email-cell[data-index="${index}"]`);
+                const currentEmail = emails[index];
+                emailCell.innerHTML = `
+                    <input type="email" class="edit-input" value="${currentEmail}">
+                    <button class="btn btn-success btn-sm save-btn" data-index="${index}">Save</button>
+                `;
+                e.target.style.display = 'none';
+            } else if (e.target.classList.contains('save-btn')) {
+                const newEmail = emailCell.querySelector('.edit-input').value.trim();
+                if (newEmail && (!emails.includes(newEmail) || newEmail === currentEmail)) {
+                    emails[index] = newEmail;
+                    renderEmails();
+                } else if (!newEmail) {
+                    alert('Please enter a valid email address.');
+                } else {
+                    alert('This email is already in the list.');
+                }
+            }
+        });
+
+        // 添加新邮箱
+        addEmailBtn.addEventListener('click', function() {
+            const newEmail = addEmailInput.value.trim();
+            if (newEmail && !emails.includes(newEmail)) {
+                emails.push(newEmail);
+                renderEmails();
+                addEmailInput.value = '';
+            } else if (!newEmail) {
+                alert('Please enter a valid email address.');
+            } else {
+                alert('This email is already in the list.');
+            }
+        });
+
+        // 按 Enter 键添加邮箱
+        addEmailInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addEmailBtn.click();
+            }
+        });
+
+        // 发送邮件并更新发送次数
         document.getElementById('send-email').addEventListener('click', async function() {
             const subject = document.getElementById('subject').value;
             const body = tinymce.get('email-body').getContent();
@@ -107,21 +234,17 @@
             const sendButton = document.getElementById('send-email');
             sendButton.disabled = true;
 
-            let emailsToSend = emails; // Start with the emails from the URL
-            if (emailsToSend.length === 0 && recipientInput.value) {
-                // If no emails from URL and recipient input has a value, use the manual input
-                emailsToSend = [recipientInput.value];
-            } else if (emailsToSend.length === 0) {
+            if (emails.length === 0) {
                 progressDiv.textContent = 'No emails to send.';
                 sendButton.disabled = false;
                 return;
             }
 
             let successCount = 0;
-            for (let i = 0; i < emailsToSend.length; i++) {
-                const email = emailsToSend[i];
-                recipientInput.value = email;
-                progressDiv.textContent = `Sending email ${i + 1}/${emailsToSend.length} to ${email}...`;
+            const sentEmails = []; // 记录成功发送的邮箱
+            for (let i = 0; i < emails.length; i++) {
+                const email = emails[i];
+                progressDiv.textContent = `Sending email ${i + 1}/${emails.length} to ${email}...`;
 
                 try {
                     const response = await fetch('/send_email', {
@@ -137,17 +260,16 @@
                     const data = await response.json();
                     if (data.status === 'success') {
                         successCount++;
-                        progressDiv.textContent = `Sent ${i + 1}/${emailsToSend.length} emails. Success: ${successCount}`;
+                        sentEmails.push(email); // 记录成功发送的邮箱
+                        progressDiv.textContent = `Sent ${i + 1}/${emails.length} emails. Success: ${successCount}`;
                     } else {
                         progressDiv.textContent = `Failed to send to ${email}: ${data.message}`;
                     }
                 } catch (error) {
                     progressDiv.textContent = `Error sending to ${email}: ${error}`;
                 }
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟 1 秒，避免邮件服务器限制
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟 1 秒
             }
-
-            progressDiv.textContent = `Completed! Sent ${successCount}/${emailsToSend.length} emails.`;
             sendButton.disabled = false;
             setTimeout(() => window.close(), 2000); // 2 秒后关闭窗口
         });

@@ -10,7 +10,7 @@ from scraper import extract_business_info
 from contact_scraper import extract_contact_info
 from utils import save_to_csv, save_to_excel
 from email_sender import EmailSender
-from db import save_business_data_to_db, get_history_records  # 新增导入
+from db import save_business_data_to_db, get_history_records,update_send_count  # 新增导入
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -280,5 +280,25 @@ def get_history():
     except Exception as e:
         print(f"查询历史记录失败: {e}", file=sys.stderr)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# 在路由部分添加
+@app.route('/update_send_count', methods=['POST'])
+def update_send_count_route():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "请先登录"}), 401
+
+    data = request.get_json()
+    emails = data.get('emails', [])
+
+    if not emails:
+        return jsonify({"status": "error", "message": "No emails provided"}), 400
+
+    try:
+        update_send_count(emails)
+        return jsonify({"status": "success", "message": "Send counts updated successfully"})
+    except Exception as e:
+        print(f"更新发送次数失败: {e}", file=sys.stderr)
+        return jsonify({"status": "error", "message": f"Failed to update send counts: {e}"}), 500
+
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=80, debug=True)
