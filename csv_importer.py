@@ -11,11 +11,15 @@ logging.basicConfig(level=logging.INFO)
 
 def clean_emails(raw):
     if not raw:
+        logging.debug("No emails found.")
         return []
     # 如果是字符串并且包含逗号，就按逗号分隔
     if isinstance(raw, str):
         # 直接按逗号分隔并去除空白字符
-        return [email.strip() for email in raw.split(",") if email.strip()]
+        emails = [email.strip() for email in raw.split(",") if email.strip()]
+        if not emails:
+            logging.debug(f"No valid emails found in raw data: {raw}")
+        return emails
     # 如果已经是列表，直接返回
     if isinstance(raw, list):
         return [email.strip() for email in raw if email.strip()]
@@ -23,13 +27,16 @@ def clean_emails(raw):
 
 def load_csv_data(file_path):
     valid_data = []
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8-sig') as f:  # 尝试 utf-8-sig 编码
         reader = csv.DictReader(f)
+        logging.info(f"Columns in {file_path}: {reader.fieldnames}")  # 打印列名
         reader.fieldnames = [str(field).strip() for field in reader.fieldnames if str(field).strip().lower() != 'nan']
         for row in reader:
             emails_raw = row.get("emails", "") or row.get("Emails", "")
+            logging.debug(f"Raw emails for row {row}: {emails_raw}")  # 打印邮件字段
             emails = clean_emails(emails_raw)
             if not emails:
+                logging.debug(f"No emails found for row {row}")
                 continue
             for email in emails:
                 business = {
@@ -50,12 +57,14 @@ def load_csv_data(file_path):
 def load_xlsx_data(file_path):
     valid_data = []
     df = pd.read_excel(file_path, dtype=str)
+    logging.info(f"Columns in {file_path}: {df.columns.tolist()}")  # 打印列名
     df.columns = [str(col).strip() for col in df.columns if str(col).strip().lower() != 'nan']
     df.fillna('', inplace=True)
     for _, row in df.iterrows():
         row_dict = row.to_dict()
         emails = clean_emails(row_dict.get('emails', '') or row_dict.get('Emails', ''))
         if not emails:
+            logging.debug(f"No emails found for row {row_dict}")
             continue
         for email in emails:
             business = {
