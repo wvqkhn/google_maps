@@ -101,6 +101,7 @@ def import_csv_and_xlsx_to_db():
     try:
         for file_name in files:
             path = os.path.join(OUTPUT_DIR, file_name)
+            logging.info(f"begin handle in {file_name}")
             if file_name.endswith('.csv'):
                 data = load_csv_data(path)
             else:
