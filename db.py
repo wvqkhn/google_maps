@@ -9,8 +9,10 @@ def get_db_connection():
         if connection.is_connected():
             return connection
     except Error as e:
-        print(f"连接 MySQL 失败: {e}", file=sys.stderr)
-        raise
+        print(f"连接数据库时发生错误: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return None  # 或者引发一个自定义异常
 
 def save_business_data_to_db(business_data):
     """将所有商家数据保存到 MySQL 数据库，多邮箱拆分为多行，重复邮箱则更新数据"""
