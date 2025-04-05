@@ -98,7 +98,7 @@ def import_csv_and_xlsx_to_db():
         logging.info(f" - {file}")
 
     total_imported = 0
-
+    logging.info(f"begin handle  in {len(files)} files total.")
     for file_name in files:
         try:
             path = os.path.join(OUTPUT_DIR, file_name)
