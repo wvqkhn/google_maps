@@ -1,7 +1,6 @@
 import os
 import sys
 import csv
-import ast
 import pandas as pd
 import logging
 from config import OUTPUT_DIR
@@ -11,18 +10,16 @@ from db import save_business_data_to_db
 logging.basicConfig(level=logging.INFO)
 
 def clean_emails(raw):
-    if not isinstance(raw, (str, list)):
+    if not raw:
         return []
+    # 如果是字符串并且包含逗号，就按逗号分隔
     if isinstance(raw, str):
-        try:
-            parsed = ast.literal_eval(raw)
-            if isinstance(parsed, list):
-                return [e.strip() for e in parsed if e.strip()]
-            return [e.strip() for e in raw.split(",") if e.strip()]
-        except Exception as e:
-            logging.warning(f"Failed to parse emails: {raw}, error: {e}")
-            return [e.strip() for e in raw.split(",") if e.strip()]
-    return [e.strip() for e in raw if e.strip()]
+        # 直接按逗号分隔并去除空白字符
+        return [email.strip() for email in raw.split(",") if email.strip()]
+    # 如果已经是列表，直接返回
+    if isinstance(raw, list):
+        return [email.strip() for email in raw if email.strip()]
+    return []
 
 def load_csv_data(file_path):
     valid_data = []
