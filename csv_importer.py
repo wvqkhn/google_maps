@@ -98,8 +98,9 @@ def import_csv_and_xlsx_to_db():
         logging.info(f" - {file}")
 
     total_imported = 0
-    try:
-        for file_name in files:
+
+    for file_name in files:
+        try:
             path = os.path.join(OUTPUT_DIR, file_name)
             logging.info(f"begin handle in {file_name}")
             if file_name.endswith('.csv'):
@@ -113,8 +114,8 @@ def import_csv_and_xlsx_to_db():
                 total_imported += len(data)
             else:
                 logging.info(f"No valid data (with emails) found in {file_name}")
-    except Exception as e:
-        logging.error(f"Failed to import files: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Failed to import files: {e}", exc_info=True)
 
     logging.info(f"Total records imported: {total_imported}")
 
