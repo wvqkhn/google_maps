@@ -3,9 +3,12 @@ import sys
 import csv
 import ast
 import pandas as pd
+import logging
 from config import OUTPUT_DIR
 from db import save_business_data_to_db
 
+# 设置日志配置
+logging.basicConfig(level=logging.INFO)
 
 def clean_emails(raw):
     if not isinstance(raw, (str, list)):
@@ -16,10 +19,10 @@ def clean_emails(raw):
             if isinstance(parsed, list):
                 return [e.strip() for e in parsed if e.strip()]
             return [e.strip() for e in raw.split(",") if e.strip()]
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed to parse emails: {raw}, error: {e}")
             return [e.strip() for e in raw.split(",") if e.strip()]
     return [e.strip() for e in raw if e.strip()]
-
 
 def load_csv_data(file_path):
     valid_data = []
@@ -47,7 +50,6 @@ def load_csv_data(file_path):
                 valid_data.append(business)
     return valid_data
 
-
 def load_xlsx_data(file_path):
     valid_data = []
     df = pd.read_excel(file_path, dtype=str)
@@ -74,16 +76,20 @@ def load_xlsx_data(file_path):
             valid_data.append(business)
     return valid_data
 
-
 def import_csv_and_xlsx_to_db():
     if not os.path.exists(OUTPUT_DIR):
-        print(f"[ERROR] Output directory {OUTPUT_DIR} does not exist.")
+        logging.error(f"Output directory {OUTPUT_DIR} does not exist.")
         return
 
     files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith('.csv') or f.endswith('.xlsx')]
     if not files:
-        print("[INFO] No CSV or XLSX files found.")
+        logging.info("No CSV or XLSX files found.")
         return
+
+    # 打印所有文件列表
+    logging.info("Found the following files:")
+    for file in files:
+        logging.info(f" - {file}")
 
     total_imported = 0
     try:
@@ -96,15 +102,14 @@ def import_csv_and_xlsx_to_db():
 
             if data:
                 save_business_data_to_db(data)
-                print(f"[INFO] Imported {len(data)} valid records from {file_name}")
+                logging.info(f"Imported {len(data)} valid records from {file_name}")
                 total_imported += len(data)
             else:
-                print(f"[INFO] No valid data (with emails) found in {file_name}")
+                logging.info(f"No valid data (with emails) found in {file_name}")
     except Exception as e:
-        print(f"[ERROR] Failed to import files: {e}", file=sys.stderr)
+        logging.error(f"Failed to import files: {e}", exc_info=True)
 
-    print(f"[DONE] Total records imported: {total_imported}")
-
+    logging.info(f"Total records imported: {total_imported}")
 
 if __name__ == "__main__":
     import_csv_and_xlsx_to_db()
