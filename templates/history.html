@@ -19,10 +19,19 @@
             max-width: 500px;
             margin: 0 auto 20px;
             text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
         }
         #search-form input[type="text"] {
             padding: 8px;
-            width: 70%;
+            width: 60%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #search-form select {
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
@@ -95,6 +104,12 @@
     <h1>History Records</h1>
     <form id="search-form">
         <input type="text" id="search-query" placeholder="Search by name or email">
+        <select id="page-size">
+            <option value="10">10 per page</option>
+            <option value="20">20 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+        </select>
         <button type="submit">Search</button>
     </form>
     <table id="history-table">
@@ -134,8 +149,9 @@
         const pageInfo = document.getElementById('page-info');
         const selectAllCheckbox = document.getElementById('select-all');
         const sendSelectedBtn = document.getElementById('send-selected-btn');
+        const pageSizeSelect = document.getElementById('page-size');
         let currentPage = 1;
-        const pageSize = 10;
+        let pageSize = parseInt(pageSizeSelect.value); // 初始值从下拉框获取
 
         function formatField(value) {
             if (value && value.startsWith('http')) {
@@ -144,8 +160,8 @@
             return value || 'N/A';
         }
 
-        function fetchHistory(page, query = '') {
-            fetch(`/get_history?page=${page}&size=${pageSize}&query=${encodeURIComponent(query)}`)
+        function fetchHistory(page, size, query = '') {
+            fetch(`/get_history?page=${page}&size=${size}&query=${encodeURIComponent(query)}`)
                 .then(response => response.json())
                 .then(data => {
                     historyTableBody.innerHTML = '';
@@ -180,27 +196,40 @@
                 });
         }
 
+        // 搜索表单提交事件
         searchForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const query = document.getElementById('search-query').value;
+            pageSize = parseInt(pageSizeSelect.value); // 更新 pageSize
             currentPage = 1;
-            fetchHistory(currentPage, query);
+            fetchHistory(currentPage, pageSize, query);
         });
 
+        // 每页显示数量变化事件
+        pageSizeSelect.addEventListener('change', function() {
+            pageSize = parseInt(this.value);
+            currentPage = 1;
+            const query = document.getElementById('search-query').value;
+            fetchHistory(currentPage, pageSize, query);
+        });
+
+        // 上一页
         prevBtn.addEventListener('click', function() {
             if (currentPage > 1) {
                 currentPage--;
                 const query = document.getElementById('search-query').value;
-                fetchHistory(currentPage, query);
+                fetchHistory(currentPage, pageSize, query);
             }
         });
 
+        // 下一页
         nextBtn.addEventListener('click', function() {
             const query = document.getElementById('search-query').value;
             currentPage++;
-            fetchHistory(currentPage, query);
+            fetchHistory(currentPage, pageSize, query);
         });
 
+        // 全选/取消全选
         selectAllCheckbox.addEventListener('change', function() {
             const checkboxes = document.querySelectorAll('.select-row');
             checkboxes.forEach(checkbox => {
@@ -208,6 +237,7 @@
             });
         });
 
+        // 发送选中邮箱
         sendSelectedBtn.addEventListener('click', function() {
             const selectedCheckboxes = document.querySelectorAll('.select-row:checked');
             const selectedEmails = Array.from(selectedCheckboxes)
@@ -224,7 +254,7 @@
         });
 
         // 初始加载第一页
-        fetchHistory(currentPage);
+        fetchHistory(currentPage, pageSize);
     </script>
 </body>
 </html>
