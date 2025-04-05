@@ -94,12 +94,14 @@ def import_csv_and_xlsx_to_db():
 
     # 打印所有文件列表
     logging.info("Found the following files:")
+    r=[]
     for file in files:
+        r.append(file)
         logging.info(f" - {file}")
 
     total_imported = 0
     logging.info(f"begin handle  in {len(files)} files total.")
-    for file_name in files:
+    for file_name in r:
         try:
             path = os.path.join(OUTPUT_DIR, file_name)
             logging.info(f"begin handle in {file_name}")
