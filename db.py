@@ -86,24 +86,24 @@ def get_history_records(page, size, query=''):
 
         if query:
             sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at 
-                FROM business_records 
-                WHERE name LIKE %s OR email LIKE %s 
-                ORDER BY created_at DESC 
+                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at
+                FROM business_records
+                WHERE name LIKE %s OR email LIKE %s
+                ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
             """
             count_sql = """
-                SELECT COUNT(*) as total 
-                FROM business_records 
+                SELECT COUNT(*) as total
+                FROM business_records
                 WHERE name LIKE %s OR email LIKE %s
             """
             query_param = f"%{query}%"
             cursor.execute(sql, (query_param, query_param, size, offset))
         else:
             sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at 
-                FROM business_records 
-                ORDER BY created_at DESC 
+                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at
+                FROM business_records
+                ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
             """
             count_sql = "SELECT COUNT(*) as total FROM business_records"
@@ -111,19 +111,35 @@ def get_history_records(page, size, query=''):
 
         records = cursor.fetchall()
 
-        cursor.execute(count_sql, (query_param, query_param) if query else None)
+        if query:
+            cursor.execute(count_sql, (query_param, query_param))
+        else:
+            cursor.execute(count_sql)
         total = cursor.fetchone()['total']
 
         return records, total
 
-    except Error as e:
+    except Exception as e:  # Catch a broader range of exceptions
         print(f"查询历史记录失败: {e}", file=sys.stderr)
-        raise
+        import traceback
+        traceback.print_exc(file=sys.stderr)  # Print the full traceback for debugging
+        return [], 0  # Return an empty list and 0 to indicate failure
+
     finally:
         if cursor:
-            cursor.close()
+            try:
+                cursor.close()
+            except Exception as e:
+                print(f"关闭游标失败: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
         if connection and connection.is_connected():
-            connection.close()
+            try:
+                connection.close()
+            except Exception as e:
+                print(f"关闭连接失败: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
 
 def update_send_count(emails):
     """更新指定邮箱的发送次数"""
