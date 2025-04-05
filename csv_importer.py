@@ -106,7 +106,7 @@ def import_csv_and_xlsx_to_db():
 
     total_imported = 0
     logging.info(f"Begin processing {len(files)} files.")
-    for file_name in files:
+    for file_name in reversed(files):
         logging.info("=" * 60)
         logging.info(f"Start handling: {file_name}")
         try:
