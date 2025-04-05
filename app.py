@@ -10,7 +10,7 @@ from scraper import extract_business_info
 from contact_scraper import extract_contact_info
 from utils import save_to_csv, save_to_excel
 from email_sender import EmailSender
-from db import save_business_data_to_db  # 导入保存函数
+from db import save_business_data_to_db, get_history_records  # 新增导入
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -252,6 +252,33 @@ def save_business_data():
     except Exception as e:
         print(f"保存商家数据失败: {e}", file=sys.stderr)
         return jsonify({"status": "error", "message": f"保存商家数据失败: {e}"}), 500
+# 新增历史记录页面路由
+@app.route('/history')
+def history():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return render_template('history.html')
 
+# 新增历史记录查询接口
+@app.route('/get_history', methods=['GET'])
+def get_history():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "请先登录"}), 401
+
+    page = int(request.args.get('page', 1))
+    size = int(request.args.get('size', 10))
+    query = request.args.get('query', '')
+
+    try:
+        records, total = get_history_records(page, size, query)
+        total_pages = (total + size - 1) // size
+        return jsonify({
+            "status": "success",
+            "records": records,
+            "total_pages": total_pages
+        })
+    except Exception as e:
+        print(f"查询历史记录失败: {e}", file=sys.stderr)
+        return jsonify({"status": "error", "message": str(e)}), 500
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=80, debug=True)

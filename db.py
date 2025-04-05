@@ -1,5 +1,4 @@
 import mysql.connector
-import sys
 from mysql.connector import Error
 from config import DB_CONFIG
 
@@ -21,25 +20,23 @@ def save_business_data_to_db(business_data):
         connection = get_db_connection()
         cursor = connection.cursor()
 
-        # 创建表（如果不存在）
-        # cursor.execute("""
-        #     CREATE TABLE IF NOT EXISTS business_records (
-        #         id INT AUTO_INCREMENT PRIMARY KEY,
-        #         name VARCHAR(255),
-        #         website TEXT,
-        #         email VARCHAR(255),
-        #         phones TEXT,
-        #         facebook TEXT,
-        #         twitter TEXT,
-        #         instagram TEXT,
-        #         linkedin TEXT,
-        #         whatsapp TEXT,
-        #         youtube TEXT,
-        #         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        #     )
-        # """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS business_records (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255),
+                website TEXT,
+                email VARCHAR(255),
+                phones TEXT,
+                facebook TEXT,
+                twitter TEXT,
+                instagram TEXT,
+                linkedin TEXT,
+                whatsapp TEXT,
+                youtube TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-        # 插入数据
         for business in business_data:
             name = business.get('name', '')
             website = business.get('website', '')
@@ -52,7 +49,6 @@ def save_business_data_to_db(business_data):
             whatsapp = business.get('whatsapp', '')
             youtube = business.get('youtube', '')
 
-            # 如果没有邮箱，则插入一行
             if not emails:
                 cursor.execute("""
                     INSERT INTO business_records 
@@ -60,7 +56,6 @@ def save_business_data_to_db(business_data):
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (name, website, None, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube))
             else:
-                # 对于每个邮箱，插入一行
                 for email in emails:
                     cursor.execute("""
                         INSERT INTO business_records 
@@ -79,3 +74,63 @@ def save_business_data_to_db(business_data):
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+def get_history_records(page, size, query=''):
+    """查询历史记录，支持搜索和分页"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 计算偏移量
+        offset = (page - 1) * size
+
+        # 构建查询语句
+        if query:
+            sql = """
+                SELECT id, name, website, email, phones, created_at 
+                FROM business_records 
+                WHERE name LIKE %s OR email LIKE %s 
+                ORDER BY created_at DESC 
+                LIMIT %s OFFSET %s
+            """
+            count_sql = """
+                SELECT COUNT(*) as total 
+                FROM business_records 
+                WHERE name LIKE %s OR email LIKE %s
+            """
+            query_param = f"%{query}%"
+            cursor.execute(sql, (query_param, query_param, size, offset))
+        else:
+            sql = """
+                SELECT id, name, website, email, phones, created_at 
+                FROM business_records 
+                ORDER BY created_at DESC 
+                LIMIT %s OFFSET %s
+            """
+            count_sql = "SELECT COUNT(*) as total FROM business_records"
+            cursor.execute(sql, (size, offset))
+
+        records = cursor.fetchall()
+
+        # 获取总数
+        cursor.execute(count_sql, (query_param, query_param) if query else None)
+        total = cursor.fetchone()['total']
+
+        return records, total
+
+    except Error as e:
+        print(f"查询历史记录失败: {e}", file=sys.stderr)
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+if __name__ == "__main__":
+    # 测试代码
+    records, total = get_history_records(1, 10, "example")
+    print(f"Records: {records}")
+    print(f"Total: {total}")
