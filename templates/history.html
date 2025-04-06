@@ -13,7 +13,24 @@
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+        #column-toggles {
+            max-width: 95%;
+            margin: 0 auto 10px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+            text-align: left;
+        }
+        #column-toggles label {
+            margin-right: 15px;
+            font-size: 0.9em;
+            color: #777;
+        }
+        #column-toggles input[type="checkbox"] {
+            margin-right: 5px;
         }
         #search-form {
             max-width: 500px;
@@ -55,6 +72,8 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             border-radius: 8px;
             overflow-x: auto;
+            table-layout: fixed; /* 允许列宽固定 */
+            border: 1px solid #ccc; /* 可选：添加表格边框以便观察 */
         }
         #history-table th, #history-table td {
             padding: 12px 15px;
@@ -64,6 +83,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 200px;
+            border-right: 1px solid #eee; /* 可选：添加单元格右边框以便观察 */
+        }
+        /* 加长 Email 列 */
+        #history-table th:nth-child(5),
+        #history-table td:nth-child(5) {
+            max-width: 300px; /* 增加 Email 列的最大宽度 */
         }
         #history-table th {
             background-color: #007bff;
@@ -71,6 +96,7 @@
             font-weight: bold;
             position: sticky;
             top: 0;
+            cursor: col-resize; /* 鼠标悬停时显示列调整光标 */
         }
         #history-table tr:nth-child(even) {
             background-color: #f9f9f9;
@@ -98,10 +124,31 @@
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        /* 列可拖动样式 */
+        #history-table th {
+            position: relative;
+        }
+        /* 初始隐藏这些列 */
+        .twitter-column,
+        .instagram-column,
+        .linkedin-column,
+        .whatsapp-column,
+        .youtube-column {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <h1>History Records</h1>
+
+    <div id="column-toggles">
+        <label><input type="checkbox" id="toggle-twitter"> Twitter</label>
+        <label><input type="checkbox" id="toggle-instagram"> Instagram</label>
+        <label><input type="checkbox" id="toggle-linkedin"> LinkedIn</label>
+        <label><input type="checkbox" id="toggle-whatsapp"> WhatsApp</label>
+        <label><input type="checkbox" id="toggle-youtube"> YouTube</label>
+    </div>
+
     <form id="search-form">
         <input type="text" id="search-query" placeholder="Search by name or email">
         <select id="page-size">
@@ -121,12 +168,12 @@
                 <th>Website</th>
                 <th>Email</th>
                 <th>Phones</th>
-                <th>Facebook</th>
-                <th>Twitter</th>
-                <th>Instagram</th>
-                <th>LinkedIn</th>
-                <th>WhatsApp</th>
-                <th>YouTube</th>
+                <th class="twitter-column">Facebook</th>
+                <th class="instagram-column">Twitter</th>
+                <th class="linkedin-column">Instagram</th>
+                <th class="whatsapp-column">LinkedIn</th>
+                <th class="youtube-column">WhatsApp</th>
+                <th class="youtube-column">YouTube</th>
                 <th>Send Count</th>
                 <th>Updated At</th>
                 <th>Created At</th>
@@ -144,6 +191,7 @@
 
     <script>
         const searchForm = document.getElementById('search-form');
+        const historyTable = document.getElementById('history-table');
         const historyTableBody = document.getElementById('history-table-body');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
@@ -151,6 +199,14 @@
         const selectAllCheckbox = document.getElementById('select-all');
         const sendSelectedBtn = document.getElementById('send-selected-btn');
         const pageSizeSelect = document.getElementById('page-size');
+
+        // 获取列切换复选框
+        const toggleTwitter = document.getElementById('toggle-twitter');
+        const toggleInstagram = document.getElementById('toggle-instagram');
+        const toggleLinkedin = document.getElementById('toggle-linkedin');
+        const toggleWhatsapp = document.getElementById('toggle-whatsapp');
+        const toggleYoutube = document.getElementById('toggle-youtube');
+
         let currentPage = 1;
         let pageSize = parseInt(pageSizeSelect.value); // 初始值从下拉框获取
 
@@ -175,12 +231,12 @@
                             <td>${formatField(record.website)}</td>
                             <td>${record.email || 'N/A'}</td>
                             <td>${record.phones || 'N/A'}</td>
-                            <td>${formatField(record.facebook)}</td>
-                            <td>${formatField(record.twitter)}</td>
-                            <td>${formatField(record.instagram)}</td>
-                            <td>${formatField(record.linkedin)}</td>
-                            <td>${formatField(record.whatsapp)}</td>
-                            <td>${formatField(record.youtube)}</td>
+                            <td class="twitter-column">${formatField(record.facebook)}</td>
+                            <td class="instagram-column">${formatField(record.twitter)}</td>
+                            <td class="linkedin-column">${formatField(record.instagram)}</td>
+                            <td class="whatsapp-column">${formatField(record.linkedin)}</td>
+                            <td class="youtube-column">${formatField(record.whatsapp)}</td>
+                            <td class="youtube-column">${formatField(record.youtube)}</td>
                             <td>${record.send_count !== null ? record.send_count : 0}</td>
                             <td>${record.updated_at || 'N/A'}</td>
                             <td>${record.created_at || 'N/A'}</td>
@@ -191,6 +247,9 @@
                     pageInfo.textContent = `Page ${page} of ${data.total_pages}`;
                     prevBtn.disabled = page === 1;
                     nextBtn.disabled = page === data.total_pages;
+
+                    // 重新应用列的显示状态
+                    applyColumnVisibility();
                 })
                 .catch(error => {
                     console.error('Error fetching history:', error);
@@ -254,6 +313,89 @@
                     window.location.href = redirectUrl;
             } else {
                 alert('No valid emails selected');
+            }
+        });
+
+        function toggleColumnVisibility(className, show) {
+            const elements = document.querySelectorAll('.' + className);
+            elements.forEach(element => {
+                element.style.display = show ? 'table-cell' : 'none';
+            });
+        }
+
+        function applyColumnVisibility() {
+            toggleColumnVisibility('twitter-column', toggleTwitter.checked);
+            toggleColumnVisibility('instagram-column', toggleInstagram.checked);
+            toggleColumnVisibility('linkedin-column', toggleLinkedin.checked);
+            toggleColumnVisibility('whatsapp-column', toggleWhatsapp.checked);
+            toggleColumnVisibility('youtube-column', toggleYoutube.checked);
+        }
+
+        // 为每个复选框添加事件监听器
+        toggleTwitter.addEventListener('change', function() {
+            toggleColumnVisibility('twitter-column', this.checked);
+        });
+
+        toggleInstagram.addEventListener('change', function() {
+            toggleColumnVisibility('instagram-column', this.checked);
+        });
+
+        toggleLinkedin.addEventListener('change', function() {
+            toggleColumnVisibility('linkedin-column', this.checked);
+        });
+
+        toggleWhatsapp.addEventListener('change', function() {
+            toggleColumnVisibility('whatsapp-column', this.checked);
+        });
+
+        toggleYoutube.addEventListener('change', function() {
+            toggleColumnVisibility('youtube-column', this.checked);
+        });
+
+        // 初始加载时应用列的显示状态
+        applyColumnVisibility();
+
+        // 实现列拖动功能
+        let currentTh = null;
+        let startOffset = null;
+        let startWidth = null;
+
+        historyTable.querySelectorAll('th').forEach(th => {
+            th.addEventListener('mousedown', function(e) {
+                const rect = this.getBoundingClientRect();
+                const rightEdge = rect.right;
+                const threshold = 5; // 允许 5px 的误差
+
+                if (Math.abs(e.clientX - rightEdge) <= threshold) {
+                    currentTh = th;
+                    startOffset = e.clientX;
+                    startWidth = th.offsetWidth;
+                    document.body.style.cursor = 'col-resize'; // 修改鼠标样式
+                }
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (currentTh) {
+                const diff = e.clientX - startOffset;
+                const newWidth = startWidth + diff;
+                currentTh.style.width = `${newWidth}px`;
+                const index = Array.from(currentTh.parentNode.children).indexOf(currentTh) + 1;
+                historyTable.querySelectorAll(`tbody tr td:nth-child(${index})`).forEach(td => {
+                    td.style.width = `${newWidth}px`;
+                });
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            currentTh = null;
+            document.body.style.cursor = 'default'; // 恢复默认鼠标样式
+        });
+
+        // 防止在拖动时选中文字
+        document.addEventListener('selectstart', function() {
+            if (currentTh) {
+                return false;
             }
         });
 

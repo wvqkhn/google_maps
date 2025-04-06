@@ -171,6 +171,25 @@ def update_send_count(emails):
         if connection and connection.is_connected():
             connection.close()
 
+def get_last_position(url):
+    cnx = mysql.connector.connect(**DB_CONFIG)
+    cursor = cnx.cursor()
+    query = "SELECT last_position FROM last_extraction_positions WHERE url = %s"
+    cursor.execute(query, (url,))
+    result = cursor.fetchone()
+    cursor.close()
+    cnx.close()
+    return result[0] if result else None
+
+def save_last_position(url, last_position):
+    cnx = mysql.connector.connect(**DB_CONFIG)
+    cursor = cnx.cursor()
+    query = "INSERT INTO last_extraction_positions (url, last_position) VALUES (%s, %s) ON DUPLICATE KEY UPDATE last_position = %s, timestamp = CURRENT_TIMESTAMP"
+    cursor.execute(query, (url, last_position, last_position))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
 if __name__ == "__main__":
     # 测试代码
     records, total = get_history_records(1, 10, "example")

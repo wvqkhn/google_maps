@@ -151,13 +151,27 @@
         .dropdown:hover .dropdown-content {
             display: block;
         }
+        /* 修改复选框和标签的样式 */
+        #extraction-form div.remember-checkbox {
+            margin-bottom: 15px;
+        }
+        #extraction-form div.remember-checkbox input[type="checkbox"] {
+            width: auto;
+            display: inline-block;
+            margin-right: 5px;
+            vertical-align: middle; /* 对齐复选框和文字 */
+        }
+        #extraction-form div.remember-checkbox label {
+            display: inline-block;
+            font-weight: normal; /* 去掉标签的加粗 */
+            vertical-align: middle; /* 对齐复选框和文字 */
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
 </head>
 <body>
     <h1>Extract Business Info</h1>
 
-    <!-- 新增右上角菜单 -->
     <div class="menu">
         <div class="dropdown">
             <button class="menu-btn">Menu</button>
@@ -174,6 +188,10 @@
         <input type="number" id="limit" name="limit" value="10" min="1">
         <label for="proxy">Proxy (optional, e.g., username:password@host:port or host:port):</label>
         <input type="text" id="proxy" name="proxy">
+        <div class="remember-checkbox">
+            <input type="checkbox" id="remember_position" name="remember_position" checked>
+            <label for="remember_position">记住上次的拉取的位置</label>
+        </div>
         <button type="submit">Start Extraction</button>
         <button type="button" id="extract-contacts-btn" style="display: none;">Extract Contact Info</button>
         <button type="button" id="send-email-btn">Send Email</button>
@@ -217,6 +235,7 @@
             const url = document.getElementById('url').value;
             const limit = document.getElementById('limit').value;
             const proxy = document.getElementById('proxy').value;
+            const rememberPosition = document.getElementById('remember_position').checked; // 获取复选框状态
 
             tableBody.innerHTML = '';
             downloadLink.style.display = 'none';
@@ -228,7 +247,7 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `url=${encodeURIComponent(url)}&limit=${encodeURIComponent(limit)}&proxy=${encodeURIComponent(proxy)}`
+                body: `url=${encodeURIComponent(url)}&limit=${encodeURIComponent(limit)}&proxy=${encodeURIComponent(proxy)}&remember_position=${rememberPosition ? 'on' : 'off'}`
             })
             .then(response => response.json())
             .then(data => {
@@ -237,7 +256,7 @@
                 }
             })
             .catch(error => {
-                progressDiv.textContent = `Fetch error: ${error}`;
+                progressDiv.textContent = `Workspace error: ${error}`;
             });
         });
 
@@ -259,7 +278,7 @@
                 }
             })
             .catch(error => {
-                progressDiv.textContent = `Fetch error: ${error}`;
+                progressDiv.textContent = `Workspace error: ${error}`;
             });
         });
 

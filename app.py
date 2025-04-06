@@ -81,6 +81,7 @@ def start_extraction():
     url = request.form.get('url')
     limit = request.form.get('limit')
     proxy = request.form.get('proxy')
+    remember_position = request.form.get('remember_position') == 'on'  # 获取复选框状态
 
     try:
         limit = int(limit)
@@ -94,7 +95,7 @@ def start_extraction():
 
     task_id = f"extract_{os.urandom(4).hex()}"
 
-    def background_extraction(search_url, limit, proxy=None, task_id=task_id):
+    def background_extraction(search_url, limit, proxy=None, task_id=task_id,remember_position=False):
         driver = None
         with app.app_context():
             try:
@@ -103,7 +104,7 @@ def start_extraction():
                 socketio.emit('progress_update', {'progress': 0, 'message': '正在初始化浏览器...' if not proxy_info else proxy_info})
 
                 extracted_data = []
-                for progress, current, business_data, message in extract_business_info(driver, search_url, limit):
+                for progress, current, business_data, message in extract_business_info(driver, search_url, limit,remember_position):
                     if business_data:
                         extracted_data.append(business_data)
                     socketio.emit('progress_update', {
@@ -140,7 +141,7 @@ def start_extraction():
                 if task_id in running_tasks:
                     del running_tasks[task_id]
 
-    thread = threading.Thread(target=background_extraction, args=(url, limit, proxy, task_id))
+    thread = threading.Thread(target=background_extraction, args=(url, limit, proxy, task_id,remember_position))
     thread.daemon = True
     thread.start()
 

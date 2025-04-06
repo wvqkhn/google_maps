@@ -5,6 +5,52 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+import mysql.connector
+
+from config import DB_CONFIG
+
+
+def create_table():
+    cnx = mysql.connector.connect(**DB_CONFIG)
+    cursor = cnx.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS last_extraction_positions (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            url TEXT NOT NULL,
+            last_position INTEGER,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY (url)
+        )
+    ''')
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
+def get_last_position(url):
+    try:
+        cnx = mysql.connector.connect(**DB_CONFIG)
+        cursor = cnx.cursor()
+        query = "SELECT last_position FROM last_extraction_positions WHERE url = %s"
+        cursor.execute(query, (url,))
+        result = cursor.fetchone()
+        cursor.close()
+        cnx.close()
+        return result[0] if result else 0  # 如果没有找到记录，默认从 0 开始
+    except mysql.connector.Error as err:
+        print(f"Error getting last position: {err}", file=sys.stderr)
+        return 0
+
+def save_last_position(url, last_position):
+    try:
+        cnx = mysql.connector.connect(**DB_CONFIG)
+        cursor = cnx.cursor()
+        query = "INSERT INTO last_extraction_positions (url, last_position) VALUES (%s, %s) ON DUPLICATE KEY UPDATE last_position = %s, timestamp = CURRENT_TIMESTAMP"
+        cursor.execute(query, (url, last_position, last_position))
+        cnx.commit()
+        cursor.close()
+        cnx.close()
+    except mysql.connector.Error as err:
+        print(f"Error saving last position: {err}", file=sys.stderr)
 
 def wait_for_element(driver, selector, timeout=5):
     try:
@@ -95,8 +141,13 @@ def extract_single_business_info(driver):
         print(f"提取单个商家信息时出错: {e}", file=sys.stderr)
         return results, f"提取单个商家信息时出错: {e}"
 
-def extract_business_info(driver, search_url, limit=500):
-    print(f"正在访问 URL: {search_url}，目标提取数量: {limit}")
+def extract_business_info(driver, search_url, limit=500, remember_position=False):
+    print(f"正在访问 URL: {search_url}，目标提取数量: {limit}，记住位置: {remember_position}")
+    start_index = 0
+    if remember_position:
+        start_index = get_last_position(search_url)
+        print(f"记住位置已启用，从索引 {start_index} 开始提取。")
+        limit=limit+start_index
     try:
         driver.get(search_url)
         WebDriverWait(driver, 10).until(
@@ -129,7 +180,8 @@ def extract_business_info(driver, search_url, limit=500):
     results = []
     total = len(business_links)
     print(f"共有 {total} 个商家链接可供提取")
-    for i, link_href in enumerate(business_links):
+    for i, link_href in enumerate(business_links[start_index:]): # 从上次保存的位置开始遍历
+        current_index = start_index + i
         if len(results) >= limit:
             print(f"已提取 {limit} 条数据，停止提取")
             break
@@ -147,8 +199,8 @@ def extract_business_info(driver, search_url, limit=500):
             time.sleep(3)  # 确保页面加载
 
             # 发送提取状态
-            progress = int(50 + (i + 1) / total * 50) if total > 0 else 50  # 提取阶段占后 50% 进度
-            yield progress, name, None, f"正在提取数据: {name}"
+            progress = int(50 + (current_index + 1) / total * 50) if total > 0 else 50  # 提取阶段占后 50% 进度
+            yield progress, name, None, f"正在提取数据: {name} ({current_index + 1}/{total})"
 
             current_url = driver.current_url
             if "/maps/place/" not in current_url:
@@ -208,5 +260,8 @@ def extract_business_info(driver, search_url, limit=500):
         except Exception as e:
             print(f"提取 {link_href} 时出错: {e}", file=sys.stderr)
             continue
+        finally:
+            if remember_position:
+                save_last_position(search_url, current_index + 1) # 保存当前完成的索引
 
     yield 100, None, None, "数据提取完成"
