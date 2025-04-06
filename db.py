@@ -88,7 +88,7 @@ def get_history_records(page, size, query=''):
 
         if query:
             sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at
+                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count,updated_at,created_at
                 FROM business_records
                 WHERE name LIKE %s OR email LIKE %s
                 ORDER BY created_at DESC
@@ -103,7 +103,7 @@ def get_history_records(page, size, query=''):
             cursor.execute(sql, (query_param, query_param, size, offset))
         else:
             sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, created_at
+                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count,updated_at, created_at
                 FROM business_records
                 ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
@@ -154,7 +154,8 @@ def update_send_count(emails):
         for email in emails:
             cursor.execute("""
                 UPDATE business_records 
-                SET send_count = send_count + 1 
+                SET send_count = send_count + 1 ,
+                updated_at = CURRENT_TIMESTAMP
                 WHERE email = %s
             """, (email,))
 

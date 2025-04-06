@@ -128,6 +128,7 @@
                 <th>WhatsApp</th>
                 <th>YouTube</th>
                 <th>Send Count</th>
+                <th>Updated At</th>
                 <th>Created At</th>
             </tr>
         </thead>
@@ -181,6 +182,7 @@
                             <td>${formatField(record.whatsapp)}</td>
                             <td>${formatField(record.youtube)}</td>
                             <td>${record.send_count !== null ? record.send_count : 0}</td>
+                            <td>${record.updated_at || 'N/A'}</td>
                             <td>${record.created_at || 'N/A'}</td>
                         `;
                         historyTableBody.appendChild(row);
