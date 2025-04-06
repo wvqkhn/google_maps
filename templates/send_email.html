@@ -135,13 +135,20 @@
             selector: '#email-body',
             height: 300,
             width: '100%',
-            menubar: false,
-            plugins: 'link image lists',
-            toolbar: 'undo redo | bold italic | alignleft aligncenter alignright | bullist numlist | link image',
+            menubar: true,
+            plugins: 'advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code fullscreen insertdatetime media table emoticons template wordcount',
+            toolbar: 'undo redo | insertfile image link | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | forecolor backcolor | code',
+            images_upload_base64: true,
             init_instance_callback: function (editor) {
+                console.log('TinyMCE initialized');
                 const urlParams = new URLSearchParams(window.location.search);
                 const csvFile = urlParams.get('file') || 'No file generated';
-                editor.setContent(`<p>Hello,</p><p>Here are the Google Maps extraction results:</p><ul><li>Extraction Time: ${new Date().toLocaleString()}</li><li>File: ${csvFile}</li></ul><p>Please see the attached file or download it from the link.</p><p>Regards,<br>[Your Name]</p>`);
+                const cachedBody = localStorage.getItem('emailBodyCache');
+                editor.setContent(cachedBody ? cachedBody : `<p>Hello,</p><p>Here are the Google Maps extraction results:</p><ul><li>Extraction Time: ${new Date().toLocaleString()}</li><li>File: ${csvFile}</li></ul><p>Please see the attached file or download it from the link.</p><p>Regards,<br>[Your Name]</p>`);
+
+                editor.on('Change', function () {
+                    localStorage.setItem('emailBodyCache', editor.getContent());
+                });
             }
         });
 
@@ -153,6 +160,18 @@
         const recipientsTableBody = document.getElementById('recipients-table-body');
         const addEmailInput = document.getElementById('add-email-input');
         const addEmailBtn = document.getElementById('add-email-btn');
+        const subjectInput = document.getElementById('subject');
+
+        // 加载缓存的主题
+        const cachedSubject = localStorage.getItem('emailSubjectCache');
+        if (cachedSubject) {
+            subjectInput.value = cachedSubject;
+        }
+
+        // 保存主题到缓存
+        subjectInput.addEventListener('input', function() {
+            localStorage.setItem('emailSubjectCache', this.value);
+        });
 
         // 渲染邮箱表格
         function renderEmails() {

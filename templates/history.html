@@ -246,8 +246,10 @@
 
             const uniqueEmails = [...new Set(selectedEmails)];
             if (uniqueEmails.length > 0) {
-                const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
-                window.open(`/send_email_page?emails=${emailsParam}`, '_blank', 'width=800,height=700');
+                    const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
+                    const redirectUrl = `/send_email_page?emails=${emailsParam}`;
+                    console.log(`Redirecting to: ${redirectUrl}`);  // 调试信息
+                    window.location.href = redirectUrl;
             } else {
                 alert('No valid emails selected');
             }
