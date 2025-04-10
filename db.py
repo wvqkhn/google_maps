@@ -190,6 +190,27 @@ def save_last_position(url, last_position):
     cursor.close()
     cnx.close()
 
+def  get_facebook_non_email():
+    cnx = mysql.connector.connect(**DB_CONFIG)
+    cursor = cnx.cursor()
+    query = "SELECT id,facebook FROM business_records WHERE facebook is not null and  email is null"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    return result
+def update_business_email(business_id, email):
+    """更新 business_records 表中指定 ID 的记录的邮箱"""
+    try:
+        cnx = get_db_connection()
+        cursor = cnx.cursor()
+        query = "UPDATE business_records SET email = %s WHERE id = %s"
+        cursor.execute(query, (email, business_id))
+        cnx.commit()
+        cursor.close()
+        cnx.close()
+        return True
+    except mysql.connector.Error as err:
+        print(f"更新数据库邮箱失败: {err}")
+        return False
 if __name__ == "__main__":
     # 测试代码
     records, total = get_history_records(1, 10, "example")

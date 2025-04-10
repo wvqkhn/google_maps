@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request, render_template, session, redirect, u
 from flask_socketio import SocketIO
 from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR, PASSWORD
 from chrome_driver import get_chrome_driver
+from facebook_email_fetcher import scraper_facebook_email
 from scraper import extract_business_info
 from contact_scraper import extract_contact_info
 from utils import save_to_csv, save_to_excel
@@ -300,6 +301,8 @@ def update_send_count_route():
     except Exception as e:
         print(f"更新发送次数失败: {e}", file=sys.stderr)
         return jsonify({"status": "error", "message": f"Failed to update send counts: {e}"}), 500
-
+@app.route('/auto_scraper_facebook_email', methods=['POST'])
+def auto_scraper_facebook_email():
+    scraper_facebook_email('')
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=80, debug=True)
