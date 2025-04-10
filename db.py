@@ -210,6 +210,23 @@ def update_business_email(business_id, email):
         return True
     except mysql.connector.Error as err:
         print(f"更新数据库邮箱失败: {err}")
+        if err.errno == 1062:  # 1062 是 Duplicate entry 的错误代码
+            delete_business_email(business_id)
+            print(f"更新重复，删除: {business_id}")
+        return False
+def delete_business_email(business_id):
+    """删除 business_records 表中指定 ID 的记录"""
+    try:
+        cnx = get_db_connection()
+        cursor = cnx.cursor()
+        query = "DELETE FROM business_records WHERE id = %s"
+        cursor.execute(query, (business_id,))  # 将 business_id 放在一个元组中
+        cnx.commit()
+        cursor.close()
+        cnx.close()
+        return True
+    except mysql.connector.Error as err:
+        print(f"删除数据库记录失败: {err}")
         return False
 if __name__ == "__main__":
     # 测试代码
