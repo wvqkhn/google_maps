@@ -76,8 +76,8 @@ def save_business_data_to_db(business_data):
             connection.close()
 
 
-def get_history_records(page, size, query=''):
-    """查询历史记录，支持搜索和分页"""
+def get_history_records(page, size, query='', show_empty_email=False):
+    """查询历史记录，支持搜索、分页和邮箱不为空筛选"""
     connection = None
     cursor = None
     try:
@@ -86,46 +86,52 @@ def get_history_records(page, size, query=''):
 
         offset = (page - 1) * size
 
-        if query:
-            sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count,updated_at,created_at
-                FROM business_records
-                WHERE name LIKE %s OR email LIKE %s
-                ORDER BY created_at DESC
-                LIMIT %s OFFSET %s
-            """
-            count_sql = """
-                SELECT COUNT(*) as total
-                FROM business_records
-                WHERE name LIKE %s OR email LIKE %s
-            """
-            query_param = f"%{query}%"
-            cursor.execute(sql, (query_param, query_param, size, offset))
-        else:
-            sql = """
-                SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count,updated_at, created_at
-                FROM business_records
-                ORDER BY created_at DESC
-                LIMIT %s OFFSET %s
-            """
-            count_sql = "SELECT COUNT(*) as total FROM business_records"
-            cursor.execute(sql, (size, offset))
+        # 基础 SQL 查询
+        sql = """
+            SELECT id, name, website, email, phones, facebook, twitter, instagram, linkedin, whatsapp, youtube, send_count, updated_at, created_at
+            FROM business_records
+            WHERE 1=1
+        """
+        count_sql = """
+            SELECT COUNT(*) as total
+            FROM business_records
+            WHERE 1=1
+        """
+        params = []
+        count_params = []
 
+        # 添加邮箱筛选条件
+        if not show_empty_email:
+            sql += " AND (email IS NOT NULL AND email != '')"
+            count_sql += " AND (email IS NOT NULL AND email != '')"
+
+        # 添加搜索条件
+        if query:
+            sql += " AND (name LIKE %s OR email LIKE %s)"
+            count_sql += " AND (name LIKE %s OR email LIKE %s)"
+            query_param = f"%{query}%"
+            params.extend([query_param, query_param])
+            count_params.extend([query_param, query_param])
+
+        # 添加排序和分页
+        sql += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([size, offset])
+
+        # 执行查询
+        cursor.execute(sql, params)
         records = cursor.fetchall()
 
-        if query:
-            cursor.execute(count_sql, (query_param, query_param))
-        else:
-            cursor.execute(count_sql)
+        # 查询总数
+        cursor.execute(count_sql, count_params)
         total = cursor.fetchone()['total']
 
         return records, total
 
-    except Exception as e:  # Catch a broader range of exceptions
+    except Exception as e:
         print(f"查询历史记录失败: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc(file=sys.stderr)  # Print the full traceback for debugging
-        return [], 0  # Return an empty list and 0 to indicate failure
+        traceback.print_exc(file=sys.stderr)
+        return [], 0
 
     finally:
         if cursor:

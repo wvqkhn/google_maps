@@ -1,8 +1,12 @@
+import json
 import sys
 import io
 import os
 import threading
-from flask import Flask, jsonify, request, render_template, session, redirect, url_for, send_file
+from datetime import datetime
+
+import pandas as pd
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for, send_file, make_response
 from flask_socketio import SocketIO
 from config import SECRET_KEY, CORS_ALLOWED_ORIGINS, OUTPUT_DIR, PASSWORD
 from chrome_driver import get_chrome_driver
@@ -183,7 +187,7 @@ def extract_contacts():
                 socketio.emit('contact_update', {
                     'progress': 100,
                     'csv_file': csv_filename,
-                    'message': '联系方式提取完成，正在保存到数据库...'
+                    'message': '联系方式提取完成'
                 })
 
                 # 保存到数据库
@@ -270,9 +274,9 @@ def get_history():
     page = int(request.args.get('page', 1))
     size = int(request.args.get('size', 10))
     query = request.args.get('query', '')
-
+    show_empty_email = request.args.get('show_empty_email', 'false').lower() == 'true'  # 获取筛选参数，默认为 false
     try:
-        records, total = get_history_records(page, size, query)
+        records, total = get_history_records(page, size, query,show_empty_email)
         total_pages = (total + size - 1) // size
         return jsonify({
             "status": "success",
@@ -301,6 +305,62 @@ def update_send_count_route():
     except Exception as e:
         print(f"更新发送次数失败: {e}", file=sys.stderr)
         return jsonify({"status": "error", "message": f"Failed to update send counts: {e}"}), 500
+
+
+@app.route('/export_excel', methods=['GET'])
+def export_excel():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "请先登录"}), 401
+
+    query = request.args.get('query', '')
+    show_empty_email = request.args.get('show_empty_email', 'false').lower() == 'true'
+    columns = request.args.get('columns', '[]')
+
+    try:
+        # 解析 columns 参数
+        columns = json.loads(columns) if columns else [
+            'id', 'name', 'website', 'email', 'phones', 'facebook', 'twitter',
+            'instagram', 'linkedin', 'whatsapp', 'youtube', 'send_count',
+            'updated_at', 'created_at'
+        ]
+
+        # 查询记录（不分页，获取所有匹配的记录）
+        records, _ = get_history_records(page=1, size=999999, query=query, show_empty_email=show_empty_email)
+
+        if not records:
+            return jsonify({"status": "error", "message": "没有可导出的记录"}), 404
+
+        # 转换为 DataFrame
+        df = pd.DataFrame(records)
+
+        # 只保留指定的列
+        available_columns = [col for col in columns if col in df.columns]
+        if not available_columns:
+            return jsonify({"status": "error", "message": "未选择有效列"}), 400
+        df = df[available_columns]
+
+        # 创建 Excel 文件
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='History')
+
+        # 设置响应
+        output.seek(0)
+        response = make_response(output.read())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers[
+            'Content-Disposition'] = f'attachment; filename=history_export_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+
+        return response
+
+    except json.JSONDecodeError:
+        return jsonify({"status": "error", "message": "无效的 columns 参数"}), 400
+    except Exception as e:
+        print(f"导出 Excel 失败: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/auto_scraper_facebook_email', methods=['POST'])
 def auto_scraper_facebook_email():
     scraper_facebook_email('')

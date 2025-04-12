@@ -30,7 +30,16 @@ def scraper_facebook_email(proxy):
             extract_business_info(proxy, facebook_url=facebook_url, business_id=business_id)
         else:
             print(f"记录 ID {r.get('id')} 没有 Facebook URL，跳过。")
-
+def extract_single_facebook_email_info(driver, facebook_url):
+    try:
+        driver.get(facebook_url)
+        time.sleep(3)  # 等待页面加载完成，可以适当调整
+        page_source = driver.page_source
+        email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+        emails = re.findall(email_pattern, page_source)
+        return emails
+    except Exception as e:
+        print(f"处理 Facebook URL: {facebook_url} 时发生错误: {e}", file=sys.stderr)
 def extract_business_info(proxy, facebook_url, business_id):
     driver, proxy_info = get_chrome_driver(proxy)
     email_address = None

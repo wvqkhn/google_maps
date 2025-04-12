@@ -71,6 +71,7 @@
         #add-email-form {
             display: flex;
             margin-top: 10px;
+            align-items: center;
         }
         #add-email-input {
             flex-grow: 1;
@@ -88,6 +89,11 @@
             padding: 4px;
             border: 1px solid #ddd;
             border-radius: 4px;
+        }
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
@@ -109,9 +115,10 @@
                 <tbody id="recipients-table-body"></tbody>
             </table>
             <div id="add-email-form">
-                <input type="email" id="add-email-input" class="form-control" placeholder="Enter new email">
+                <input type="text" id="add-email-input" class="form-control" placeholder="Enter emails (separated by space, comma, or semicolon)">
                 <button id="add-email-btn" class="btn">Add</button>
             </div>
+            <div class="help-text">Enter multiple emails separated by spaces, commas, or semicolons (e.g., email1@example.com,email2@example.com).</div>
         </div>
         <div class="form-group">
             <label for="subject">Subject:</label>
@@ -193,6 +200,12 @@
             }
         }
 
+        // 验证邮箱格式
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
         // 初始渲染邮箱列表
         renderEmails();
 
@@ -212,40 +225,74 @@
                 `;
                 e.target.style.display = 'none';
             } else if (e.target.classList.contains('save-btn')) {
+                const emailCell = document.querySelector(`.email-cell[data-index="${index}"]`);
                 const newEmail = emailCell.querySelector('.edit-input').value.trim();
-                if (newEmail && (!emails.includes(newEmail) || newEmail === currentEmail)) {
-                    emails[index] = newEmail;
-                    renderEmails();
-                } else if (!newEmail) {
-                    alert('Please enter a valid email address.');
+                if (newEmail && isValidEmail(newEmail)) {
+                    if (!emails.includes(newEmail) || newEmail === emails[index]) {
+                        emails[index] = newEmail;
+                        renderEmails();
+                    } else {
+                        alert('This email is already in the list.');
+                    }
                 } else {
-                    alert('This email is already in the list.');
+                    alert('Please enter a valid email address.');
                 }
             }
         });
 
-        // 添加新邮箱
+        // 批量添加邮箱
         addEmailBtn.addEventListener('click', function() {
-            const newEmail = addEmailInput.value.trim();
-            if (newEmail && !emails.includes(newEmail)) {
-                emails.push(newEmail);
-                renderEmails();
-                addEmailInput.value = '';
-            } else if (!newEmail) {
-                alert('Please enter a valid email address.');
-            } else {
-                alert('This email is already in the list.');
+            const input = addEmailInput.value.trim();
+            if (!input) {
+                alert('Please enter at least one email address.');
+                return;
+            }
+
+            // 支持空格、逗号、分号分隔
+            const newEmails = input.split(/[\s,;]+/).map(email => email.trim()).filter(email => email);
+            let addedCount = 0;
+            let invalidEmails = [];
+            let duplicateEmails = [];
+
+            newEmails.forEach(email => {
+                if (!isValidEmail(email)) {
+                    invalidEmails.push(email);
+                } else if (emails.includes(email)) {
+                    duplicateEmails.push(email);
+                } else {
+                    emails.push(email);
+                    addedCount++;
+                }
+            });
+
+            renderEmails();
+            addEmailInput.value = '';
+
+            // 显示添加结果
+            let message = '';
+            if (addedCount > 0) {
+                message += `Successfully added ${addedCount} email(s). `;
+            }
+            if (invalidEmails.length > 0) {
+                message += `Invalid emails: ${invalidEmails.join(', ')}. `;
+            }
+            if (duplicateEmails.length > 0) {
+                message += `Duplicate emails: ${duplicateEmails.join(', ')}.`;
+            }
+            if (message) {
+                alert(message.trim());
             }
         });
 
-        // 按 Enter 键添加邮箱
+        // 按 Enter 键触发添加
         addEmailInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 addEmailBtn.click();
             }
         });
 
-        // 发送邮件并更新发送次数
+        // 发送邮件
         document.getElementById('send-email').addEventListener('click', async function() {
             const subject = document.getElementById('subject').value;
             const body = tinymce.get('email-body').getContent();
@@ -260,7 +307,7 @@
             }
 
             let successCount = 0;
-            const sentEmails = []; // 记录成功发送的邮箱
+            const sentEmails = [];
             for (let i = 0; i < emails.length; i++) {
                 const email = emails[i];
                 progressDiv.textContent = `Sending email ${i + 1}/${emails.length} to ${email}...`;
@@ -279,7 +326,7 @@
                     const data = await response.json();
                     if (data.status === 'success') {
                         successCount++;
-                        sentEmails.push(email); // 记录成功发送的邮箱
+                        sentEmails.push(email);
                         progressDiv.textContent = `Sent ${i + 1}/${emails.length} emails. Success: ${successCount}`;
                     } else {
                         progressDiv.textContent = `Failed to send to ${email}: ${data.message}`;
@@ -287,10 +334,10 @@
                 } catch (error) {
                     progressDiv.textContent = `Error sending to ${email}: ${error}`;
                 }
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟 1 秒
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             sendButton.disabled = false;
-            setTimeout(() => window.close(), 2000); // 2 秒后关闭窗口
+            setTimeout(() => window.close(), 2000);
         });
     </script>
 </body>

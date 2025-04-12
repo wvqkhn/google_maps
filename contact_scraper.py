@@ -7,6 +7,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from db import save_business_data_to_db  # 导入数据库保存函数
+from facebook_email_fetcher import extract_single_facebook_email_info
+
 
 def wait_for_element(driver, selector, timeout=5):
     try:
@@ -142,7 +144,10 @@ def extract_contact_info(driver, business_data_list):
                     business[key] = urls[0] if urls else None
                 if business[key]:
                     print(f"提取到 {name} 的 {label}: {business[key]}")
-
+            if not business.get('emails') and business.get('facebook'):
+                yield progress, name, business, f"未找到邮箱，开始从facebook提取 {name} "
+                business['emails']=extract_single_facebook_email_info(driver,business.get('facebook'))
+                yield progress, name, business, f"从facebook提取邮箱 {business['emails']} "
             # 提取完成后保存完整数据到数据库
             print(f"准备保存 {name} 的完整数据: {business}")
             max_retries = 3
