@@ -71,15 +71,18 @@
         #add-email-form {
             display: flex;
             margin-top: 10px;
-            align-items: center;
+            align-items: flex-start;
         }
         #add-email-input {
             flex-grow: 1;
             margin-right: 10px;
+            min-height: 60px;
+            resize: vertical;
         }
         #add-email-btn {
             background-color: #28a745;
             color: white;
+            align-self: flex-start;
         }
         #add-email-btn:hover {
             background-color: #218838;
@@ -115,10 +118,10 @@
                 <tbody id="recipients-table-body"></tbody>
             </table>
             <div id="add-email-form">
-                <input type="text" id="add-email-input" class="form-control" placeholder="Enter emails (separated by space, comma, or semicolon)">
+                <textarea id="add-email-input" class="form-control" placeholder="Enter emails (separated by space, comma, semicolon, or new line)"></textarea>
                 <button id="add-email-btn" class="btn">Add</button>
             </div>
-            <div class="help-text">Enter multiple emails separated by spaces, commas, or semicolons (e.g., email1@example.com,email2@example.com).</div>
+            <div class="help-text">Enter multiple emails separated by spaces, commas, semicolons, or new lines (e.g., email1@example.com, email2@example.com).</div>
         </div>
         <div class="form-group">
             <label for="subject">Subject:</label>
@@ -248,8 +251,8 @@
                 return;
             }
 
-            // 支持空格、逗号、分号分隔
-            const newEmails = input.split(/[\s,;]+/).map(email => email.trim()).filter(email => email);
+            // 支持空格、逗号、分号、回车、换行分隔
+            const newEmails = input.split(/[\s,;]+|\r\n|\n|\r/).map(email => email.trim()).filter(email => email);
             let addedCount = 0;
             let invalidEmails = [];
             let duplicateEmails = [];
@@ -284,9 +287,9 @@
             }
         });
 
-        // 按 Enter 键触发添加
-        addEmailInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+        // 按 Ctrl+Enter 触发添加（避免与 textarea 的默认换行冲突）
+        addEmailInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
                 addEmailBtn.click();
             }
