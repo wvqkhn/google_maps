@@ -114,7 +114,7 @@ def get_history_records(page, size, query='', show_empty_email=False):
             count_params.extend([query_param, query_param])
 
         # 添加排序和分页
-        sql += " ORDER BY updated_at,created_at DESC LIMIT %s OFFSET %s"
+        sql += " ORDER BY updated_at DESC LIMIT %s OFFSET %s"
         params.extend([size, offset])
 
         # 执行查询
