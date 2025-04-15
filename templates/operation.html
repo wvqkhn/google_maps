@@ -366,7 +366,8 @@
 
             const uniqueEmails = [...new Set(emailList)];
             if (uniqueEmails.length >=0) {
-                    const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
+                    //const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
+                    const emailsParam = uniqueEmails.join(',');  // 使用逗号分隔
                     const redirectUrl = `/send_email_page?emails=${emailsParam}`;
                     console.log(`Redirecting to: ${redirectUrl}`);  // 调试信息
                     window.location.href = redirectUrl;
