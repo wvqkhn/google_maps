@@ -361,7 +361,8 @@
 
             const uniqueEmails = [...new Set(selectedEmails)];
             if (uniqueEmails.length > 0) {
-                const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
+                const emailsParam = uniqueEmails.join(',');
+                //const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
                 const redirectUrl = `/send_email_page?emails=${emailsParam}`;
                 console.log(`Redirecting to: ${redirectUrl}`);
                 window.location.href = redirectUrl;

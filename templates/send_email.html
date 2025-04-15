@@ -165,7 +165,7 @@
         // 从 URL 获取参数
         const urlParams = new URLSearchParams(window.location.search);
         const csvFile = urlParams.get('file') || 'No file generated';
-        let emails = JSON.parse(decodeURIComponent(urlParams.get('emails') || '[]'));
+        let emails = decodeURIComponent(urlParams.get('emails') || '').split(',');
         const progressDiv = document.getElementById('email-progress');
         const recipientsTableBody = document.getElementById('recipients-table-body');
         const addEmailInput = document.getElementById('add-email-input');
