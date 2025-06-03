@@ -66,7 +66,7 @@
         }
         #history-table {
             width: 95%;
-            max-width: 1400px;
+            max-width: 1600px; /* Increased to accommodate wider columns */
             margin: 0 auto;
             border-collapse: collapse;
             background-color: #fff;
@@ -83,12 +83,14 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 200px;
+            max-width: 250px; /* Increased from 200px */
+            width: 250px; /* Explicit width for consistency */
             border-right: 1px solid #eee;
         }
         #history-table th:nth-child(5),
         #history-table td:nth-child(5) {
-            max-width: 300px;
+            max-width: 350px; /* Increased from 300px for Email column */
+            width: 350px; /* Explicit width for consistency */
         }
         #history-table th {
             background-color: #007bff;
@@ -216,7 +218,6 @@
             return value || 'N/A';
         }
 
-        // 新增时间格式化函数
         function formatDateTime(utcDateStr) {
             if (!utcDateStr || utcDateStr === 'N/A') return 'N/A';
             const date = new Date(utcDateStr);
@@ -362,7 +363,6 @@
             const uniqueEmails = [...new Set(selectedEmails)];
             if (uniqueEmails.length > 0) {
                 const emailsParam = uniqueEmails.join(',');
-                //const emailsParam = encodeURIComponent(JSON.stringify(uniqueEmails));
                 const redirectUrl = `/send_email_page?emails=${emailsParam}`;
                 console.log(`Redirecting to: ${redirectUrl}`);
                 window.location.href = redirectUrl;
@@ -432,7 +432,7 @@
         document.addEventListener('mousemove', function(e) {
             if (currentTh) {
                 const diff = e.clientX - startOffset;
-                const newWidth = startWidth + diff;
+                const newWidth = Math.max(100, startWidth + diff); // Minimum width of 100px
                 currentTh.style.width = `${newWidth}px`;
                 const index = Array.from(currentTh.parentNode.children).indexOf(currentTh) + 1;
                 historyTable.querySelectorAll(`tbody tr td:nth-child(${index})`).forEach(td => {
