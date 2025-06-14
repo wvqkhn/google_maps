@@ -56,3 +56,6 @@
    ```bash
    git clone git@github.com:wvqkhn/google_maps.git
    cd google_maps
+
+
+**法律声明**：本工具仅供学习和个人使用。提取的数据应符合当地隐私法规（如 GDPR/CCPA），并获得相关许可。开发者不对滥用行为负责。
