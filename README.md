@@ -18,14 +18,14 @@
 - **商家信息提取**：
   - 通过提供 Google Maps URL（例如 `https://www.google.com/maps/search/recliner/@-34.9252049,138.5057693,12z`），提取商家名称、网站、电话、邮箱等信息。
   - 支持设置提取商家数量（默认 10 个）。
-  - [商家信息提取界面]![img.png](img.png)
+  - [商家信息提取界面]![img.png](doc/img.png)
 - **联系方式扩展**：
   - 点击“Extract Contact Info”进一步获取 Twitter、Facebook、Instagram、LinkedIn、WhatsApp 和 YouTube 等社交媒体信息。
-  - [联系方式扩展]![img_1.png](img_1.png)
+  - [联系方式扩展]![img_1.png](doc/img_1.png)
 - **邮件通知**：
   - 提取完成后，点击“Send Email”将结果通过邮件发送（使用 `EmailSender` 类）。
   - [邮件发送]
-![img_2.png](img_2.png)
+![img_2.png](doc/img_2.png)
 
 
 ## 安装和配置
