@@ -30,11 +30,26 @@
 
 ## 安装和配置
 
-### 环境要求
-- Python 3.6+
-- MySQL 数据库
-- CHROME 和对应的  CHROME Driver
-- 邮件服务（如 Gmail）用于 `EmailSender`
+
+
+---
+
+### 📦 环境要求
+
+* **Python**：3.9 – 3.11 推荐（最低支持 3.6）
+* **数据库**：MySQL
+* **浏览器**：已安装 Chrome，并配置对应版本的 ChromeDriver
+* **邮件服务**：支持 SMTP 的邮箱（如 Gmail，用于 `EmailSender`）
+* **依赖管理**：建议使用 `virtualenv` 或 `conda` 创建隔离环境
+
+### 🔧 核心依赖
+
+* **Web 框架**：Flask 3.1.0（含 Jinja2、Werkzeug 等）
+* **数据处理**：pandas 2.2.3、numpy 2.2.4
+* **浏览器自动化**：Selenium 4.30.0（适配 ChromeDriver）
+* **异步通信**：Trio 0.29.0 + WebSocket 支持（trio-websocket）
+
+---
 
 ### 安装步骤
 1. 克隆仓库：
